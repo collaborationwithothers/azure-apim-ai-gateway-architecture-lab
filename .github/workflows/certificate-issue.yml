@@ -56,7 +56,9 @@ jobs:
       inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read

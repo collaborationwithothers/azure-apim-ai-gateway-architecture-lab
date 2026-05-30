@@ -114,7 +114,7 @@ Implement the spoke module second. It must deploy the spoke VNet and subnets, ro
 
 Implement peerings after both VNets exist. Add bidirectional peering for hub-spoke, hub-runner, and spoke-runner. Reference the runner VNet as existing in resource group `rg-dv-gh-actions-neu` with name `vnet-dv-gh-actions-neu`.
 
-Add `infra-deploy.yml` as a guarded manual workflow. It must accept `mode` as `validate`, `what-if`, or `apply`. It must run on `[self-hosted, linux, x64, cwc-azure-deploy]`, use SHA-pinned OIDC Azure login, restore and build Bicep, and only run what-if or apply after the actor, literal repository, branch, and fixed `dev` environment approval checks pass. The apply job registers required Azure providers. The what-if job only verifies provider registration state before running what-if.
+Add `infra-deploy.yml` as a guarded manual workflow. It must accept `mode` as `validate`, `what-if`, or `apply`. It must run on the `consultwithcloud-azure` runner group with the `[gh-linux]` label, use SHA-pinned OIDC Azure login, restore and build Bicep, and only run what-if or apply after the actor, literal repository, branch, and fixed `dev` environment approval checks pass. The apply job registers required Azure providers. The what-if job only verifies provider registration state before running what-if.
 
 Add `certificate-issue.yml` as a separate guarded manual workflow. It runs after initial infrastructure exists. It must create the ACME DNS-01 challenge in the Azure DNS child zone, issue a Let's Encrypt certificate for `api.consultwithcloud.com`, and import it into Key Vault as `cert-api-consultwithcloud-com`. Do not commit certificate files or ACME secrets.
 

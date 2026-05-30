@@ -103,8 +103,8 @@ Local checks:
 ## Deployment overview
 
 Deployments are manual, guarded, and intended for the repository owner from
-`main` only. Azure-changing jobs run on `[self-hosted, linux, x64,
-cwc-azure-deploy]`, use OIDC through a SHA-pinned `azure/login`, require
+`main` only. Azure-changing jobs run on the `consultwithcloud-azure` runner
+group with the `[gh-linux]` label, use OIDC through a SHA-pinned `azure/login`, require
 `github.actor == 'haripraghash'`, check the literal repository name, and use
 the fixed `dev` GitHub Environment approval.
 

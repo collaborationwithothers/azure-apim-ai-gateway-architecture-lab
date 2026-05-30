@@ -30,7 +30,7 @@ Build a subscription-scope Bicep deployment that creates the hub and spoke resou
 
 ### Executive summary
 
-The target platform uses Application Gateway WAF v2 as the public entry point for `api.consultwithcloud.com`, forwards HTTPS traffic privately to APIM Premium v2 in the hub VNet, and keeps APIM management through Azure portal, ARM, and GitHub Actions. Azure Firewall Standard controls spoke workload and future AKS outbound traffic. Log Analytics receives diagnostics from deployed platform resources. GitHub Actions uses manual dispatch, OIDC, self-hosted runner labels, environment approval, and strict job guards.
+The target platform uses Application Gateway WAF v2 as the public entry point for `api.consultwithcloud.com`, forwards HTTPS traffic privately to APIM Premium v2 in the hub VNet, and keeps APIM management through Azure portal, ARM, and GitHub Actions. Azure Firewall Standard controls spoke workload and future AKS outbound traffic. Log Analytics receives diagnostics from deployed platform resources. GitHub Actions uses manual dispatch, OIDC, runner group `consultwithcloud-azure` with label `[gh-linux]`, environment approval, and strict job guards.
 
 ## Stakeholders
 
@@ -285,7 +285,7 @@ Acceptance criteria:
 
 - No deployment workflow has `pull_request` or `pull_request_target`.
 - Deployment workflows use `workflow_dispatch` only.
-- Jobs run on `[self-hosted, linux, x64, cwc-azure-deploy]`.
+- Jobs run on runner group `consultwithcloud-azure` with label `[gh-linux]`.
 - Jobs have guards for:
   - expected actor `haripraghash`
   - literal repository `collaborationwithothers/azure-apim-ai-gateway-architecture-lab`

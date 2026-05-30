@@ -147,6 +147,62 @@ what_if_jobs_with_provider_registration() {
   ' "$file"
 }
 
+jobs_without_required_runner_group() {
+  local file="$1"
+  awk '
+    function flush_job() {
+      if (in_job && !(has_runs_on && has_runner_group && has_runner_label)) {
+        print job_name
+      }
+    }
+
+    /^jobs:[[:space:]]*$/ {
+      in_jobs = 1
+      next
+    }
+
+    in_jobs && /^[^[:space:]]/ {
+      flush_job()
+      in_jobs = 0
+      in_job = 0
+    }
+
+    in_jobs && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {
+      flush_job()
+      in_job = 1
+      job_name = $1
+      sub(/:$/, "", job_name)
+      has_runs_on = 0
+      has_runner_group = 0
+      has_runner_label = 0
+      in_runs_on = 0
+      next
+    }
+
+    in_job && /^    runs-on:[[:space:]]*$/ {
+      has_runs_on = 1
+      in_runs_on = 1
+      next
+    }
+
+    in_job && in_runs_on && /^    [A-Za-z0-9_-]+:/ {
+      in_runs_on = 0
+    }
+
+    in_job && in_runs_on && /^      group:[[:space:]]*consultwithcloud-azure[[:space:]]*$/ {
+      has_runner_group = 1
+    }
+
+    in_job && in_runs_on && /^      labels:[[:space:]]*\[gh-linux\][[:space:]]*$/ {
+      has_runner_label = 1
+    }
+
+    END {
+      flush_job()
+    }
+  ' "$file"
+}
+
 [[ -d "$workflow_dir" ]] || {
   echo "No workflow directory found."
   exit 0
@@ -206,9 +262,9 @@ while IFS= read -r workflow; do
     fail "$rel must not use GitHub-hosted runners"
   fi
 
-  if ! grep -q "runs-on: \\[self-hosted, linux, x64, cwc-azure-deploy\\]" \
-      "$workflow"; then
-    fail "$rel must use the managed Azure VNet runner labels"
+  invalid_runner_jobs="$(jobs_without_required_runner_group "$workflow")"
+  if [[ -n "$invalid_runner_jobs" ]]; then
+    fail "$rel must use the consultwithcloud-azure runner group with the gh-linux label for every job: ${invalid_runner_jobs//$'\n'/, }"
   fi
 
   if grep -Eq 'sudo |apt-get|InstallAzureCLIDeb|curl .*\|.*bash' "$workflow"; then

@@ -84,7 +84,9 @@ jobs:
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main' &&
       inputs.mode == 'validate'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -103,7 +105,9 @@ jobs:
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main' &&
       inputs.mode == 'what-if'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -189,7 +193,9 @@ jobs:
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main' &&
       inputs.mode == 'apply'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read

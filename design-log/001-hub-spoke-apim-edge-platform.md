@@ -147,7 +147,7 @@ Both workflows use:
 - No `pull_request`.
 - No `pull_request_target`.
 - `permissions: contents: read, id-token: write`.
-- `runs-on: [self-hosted, linux, x64, cwc-azure-deploy]`.
+- `runs-on` uses runner group `consultwithcloud-azure` and label `[gh-linux]`.
 - Job `if` guards for actor, literal repository, and `refs/heads/main`.
 - Fixed `dev` GitHub Environment approval before Azure-changing jobs.
 - Full commit SHA pinning for third-party actions.

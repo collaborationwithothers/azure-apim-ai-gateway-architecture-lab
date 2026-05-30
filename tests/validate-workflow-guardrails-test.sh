@@ -38,7 +38,9 @@ jobs:
       github.repository == inputs.expected_repository &&
       github.actor == inputs.expected_actor &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     steps:
       - run: echo ok
 EOF
@@ -83,7 +85,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     steps:
       - uses: actions/checkout@$checkout_sha
       - run: |
@@ -95,7 +99,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -118,7 +124,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -146,7 +154,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -187,7 +197,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     steps:
       - uses: actions/checkout@$checkout_sha
@@ -226,7 +238,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     steps:
       - uses: actions/checkout@$checkout_sha
@@ -261,7 +275,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     permissions:
       contents: read
       id-token: write
@@ -300,7 +316,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: \${{ inputs.github_environment }}
     permissions:
       contents: read
@@ -341,7 +359,9 @@ jobs:
       github.repository == inputs.expected_repository &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -379,7 +399,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -425,7 +447,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     permissions:
       contents: read
       id-token: write
@@ -465,7 +489,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -508,7 +534,9 @@ jobs:
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == inputs.expected_actor &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     environment: dev
     permissions:
       contents: read
@@ -604,8 +632,100 @@ EOF
     echo "expected GitHub-hosted runner to fail" >&2
     return 1
   fi
-  grep -q "must use the managed Azure VNet runner labels" \
+  grep -q "must use the consultwithcloud-azure runner group with the gh-linux label" \
     /tmp/workflow-guardrails-runner.out
+}
+
+expect_failure_for_mixed_runner_jobs() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/mixed-runners.yml" <<'EOF'
+name: Mixed Runners
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      expected_actor:
+        required: true
+        default: haripraghash
+
+permissions:
+  contents: read
+
+jobs:
+  good:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == inputs.expected_repository &&
+      github.actor == inputs.expected_actor &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - run: echo good
+  bad:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == inputs.expected_repository &&
+      github.actor == inputs.expected_actor &&
+      github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux]
+    steps:
+      - run: echo bad
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-mixed-runner.out 2>&1; then
+    echo "expected mixed runner jobs to fail" >&2
+    return 1
+  fi
+  grep -q "must use the consultwithcloud-azure runner group with the gh-linux label for every job: bad" \
+    /tmp/workflow-guardrails-mixed-runner.out
+}
+
+expect_failure_for_runner_group_keys_outside_runs_on() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/runner-bypass.yml" <<'EOF'
+name: Runner Bypass
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      expected_actor:
+        required: true
+        default: haripraghash
+
+permissions:
+  contents: read
+
+jobs:
+  bypass:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == inputs.expected_repository &&
+      github.actor == inputs.expected_actor &&
+      github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux]
+    outputs:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - run: echo bypass
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-runner-bypass.out 2>&1; then
+    echo "expected runner group keys outside runs-on to fail" >&2
+    return 1
+  fi
+  grep -q "must use the consultwithcloud-azure runner group with the gh-linux label for every job: bypass" \
+    /tmp/workflow-guardrails-runner-bypass.out
 }
 
 expect_failure_for_runner_mutation() {
@@ -635,7 +755,9 @@ jobs:
       github.repository == inputs.expected_repository &&
       github.actor == inputs.expected_actor &&
       github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
     steps:
       - run: sudo apt-get update
 EOF
@@ -661,6 +783,8 @@ expect_failure_for_deployment_missing_hardcoded_actor_guard
 expect_failure_for_pr_trigger
 expect_failure_for_missing_job_guard
 expect_failure_for_github_hosted_runner
+expect_failure_for_mixed_runner_jobs
+expect_failure_for_runner_group_keys_outside_runs_on
 expect_failure_for_runner_mutation
 
 echo "validate-workflow-guardrails tests passed"

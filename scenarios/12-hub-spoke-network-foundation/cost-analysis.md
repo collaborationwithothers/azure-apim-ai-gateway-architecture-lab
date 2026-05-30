@@ -10,7 +10,7 @@
 | Log Analytics              | Data ingestion and retention                 | APIM body logging can materially increase ingestion                  |
 | Key Vault                  | Operations and certificate storage           | Small in the lab, but operationally important                        |
 | ACR Premium                | Registry SKU and storage                     | Premium is chosen for future network and enterprise features         |
-| VNet peering               | Cross-region or global peering data transfer | Existing runner VNet is outside the new `eastus2` region             |
+| VNet peering               | Cross-region or global peering data transfer | Existing runner VNet is outside the new `northcentralus` region             |
 | Public DNS                 | Zone and query costs                         | Low, but required for public ingress                                 |
 
 ## Cost tradeoff

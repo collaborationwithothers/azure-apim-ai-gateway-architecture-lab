@@ -19,7 +19,7 @@ on:
       deployment_location:
         description: Azure deployment metadata location.
         required: true
-        default: eastus2
+        default: northcentralus
       template_file:
         description: Repository-relative Bicep template path.
         required: true

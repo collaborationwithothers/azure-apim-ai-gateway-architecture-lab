@@ -6,7 +6,7 @@ param runnerAllowedPublicIp string
 param appGwSubnetId string
 param apimSubnetId string
 
-var keyVaultName = 'kv-cwc-ai-gw-eus2-001'
+var keyVaultName = 'kv-cwc-ai-gw-ncus-001'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
   name: keyVaultName
@@ -44,7 +44,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
 }
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
-  name: 'acrcwcaigweus2001'
+  name: 'acrcwcaigwncus001'
   location: location
   tags: tags
   sku: {
@@ -67,7 +67,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
 }
 
 resource appGwIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-agw-cwc-ai-gw-eus2-001'
+  name: 'id-agw-cwc-ai-gw-ncus-001'
   location: location
   tags: tags
 }

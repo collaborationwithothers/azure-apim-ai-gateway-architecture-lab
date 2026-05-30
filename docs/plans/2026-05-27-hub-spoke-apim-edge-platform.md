@@ -6,7 +6,7 @@ This plan follows `instructuctions/PLAN.md` in this repository. A future agent s
 
 ## Purpose / Big Picture
 
-After this change, the repository will no longer be only an architecture scaffold. A repository owner will be able to manually run guarded GitHub Actions workflows from a self-hosted runner to deploy a real Azure hub-spoke foundation in `eastus2`. The public hostname `api.consultwithcloud.com` will terminate at Application Gateway WAF, re-encrypt to a private APIM Premium v2 gateway, and emit diagnostics to Log Analytics.
+After this change, the repository will no longer be only an architecture scaffold. A repository owner will be able to manually run guarded GitHub Actions workflows from a self-hosted runner to deploy a real Azure hub-spoke foundation in `northcentralus`. The public hostname `api.consultwithcloud.com` will terminate at Application Gateway WAF, re-encrypt to a private APIM Premium v2 gateway, and emit diagnostics to Log Analytics.
 
 The observable result is a successful Bicep build, a subscription-scope Azure what-if showing the expected hub and spoke resources, and after apply plus certificate import, a healthy Application Gateway backend to APIM and usable DNS for `api.consultwithcloud.com`.
 
@@ -25,8 +25,11 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
 
 ## Surprises & Discoveries
 
-- Observation: APIM Premium v2 is not currently listed for East US, but is listed for East US 2.
-  Evidence: Microsoft APIM v2 region availability shows East US with Basic v2 and Standard v2, while East US 2 includes Premium v2.
+- Observation: New APIM Premium v2 creation is currently unavailable in East US 2.
+  Evidence: Microsoft APIM v2 region availability lists a temporary capacity limitation for new Premium v2 instances in East US 2.
+
+- Observation: North Central US is currently listed for both APIM Premium v2 and the Azure OpenAI Responses API.
+  Evidence: Microsoft APIM v2 region availability lists Premium v2 for North Central US, and Microsoft Azure OpenAI Responses API documentation lists `northcentralus` in the supported regions.
 
 - Observation: APIM Premium v2 does not support the classic direct management endpoint pattern.
   Evidence: Microsoft APIM v2 tier documentation lists Direct Management API access as unavailable in v2 tiers.
@@ -39,9 +42,9 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
 
 ## Decision Log
 
-- Decision: Deploy all new resources to `eastus2`.
-  Rationale: APIM Premium v2 is currently supported in East US 2, not East US.
-  Date/Author: 2026-05-27 / Codex and user.
+- Decision: Deploy all new resources to `northcentralus`.
+  Rationale: It is currently in the documented intersection of APIM Premium v2 support and Azure OpenAI Responses API support, while East US 2 is temporarily unavailable for new APIM Premium v2 instances.
+  Date/Author: 2026-05-30 / Codex and user.
 
 - Decision: Use subscription `c7a1d85d-159f-4cfc-bd13-51295c9acb96`.
   Rationale: It contains the existing GitHub runner network and NAT Gateway.
@@ -154,17 +157,17 @@ For deployment preflight, use the self-hosted runner workflow or run manually fr
 Run what-if before apply:
 
     az deployment sub what-if \
-      --location eastus2 \
+      --location northcentralus \
       --template-file infra/bicep/main.bicep \
-      --parameters location=eastus2 \
+      --parameters location=northcentralus \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
 Run apply only after reviewing what-if:
 
     az deployment sub create \
-      --location eastus2 \
+      --location northcentralus \
       --template-file infra/bicep/main.bicep \
-      --parameters location=eastus2 \
+      --parameters location=northcentralus \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
 After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
@@ -195,7 +198,7 @@ This search must not reveal real secrets or committed private key material.
 
 Azure validation after apply:
 
-- The hub and spoke resource groups exist in `eastus2`.
+- The hub and spoke resource groups exist in `northcentralus`.
 - The hub, spoke, and runner VNets have bidirectional peerings.
 - Application Gateway frontend public IP exists.
 - Public DNS zone `api.consultwithcloud.com` exists and has an alias `A` record to the Application Gateway public IP.
@@ -248,24 +251,24 @@ Existing runner network:
 
 Resource naming:
 
-    rg-cwc-ai-gw-hub-eus2-001
-    rg-cwc-ai-gw-spoke-eus2-001
-    vnet-cwc-ai-gw-hub-eus2-001
-    vnet-cwc-ai-gw-spoke-eus2-001
-    afw-cwc-ai-gw-eus2-001
-    afwp-cwc-ai-gw-eus2-001
-    log-cwc-ai-gw-eus2-001
-    acrcwcaigweus2001
-    kv-cwc-ai-gw-eus2-001
-    apim-cwc-ai-gw-eus2-001
-    agw-cwc-ai-gw-eus2-001
-    pip-agw-cwc-ai-gw-eus2-001
+    rg-cwc-ai-gw-hub-ncus-001
+    rg-cwc-ai-gw-spoke-ncus-001
+    vnet-cwc-ai-gw-hub-ncus-001
+    vnet-cwc-ai-gw-spoke-ncus-001
+    afw-cwc-ai-gw-ncus-001
+    afwp-cwc-ai-gw-ncus-001
+    log-cwc-ai-gw-ncus-001
+    acrcwcaigwncus001
+    kv-cwc-ai-gw-ncus-001
+    apim-cwc-ai-gw-ncus-001
+    agw-cwc-ai-gw-ncus-001
+    pip-agw-cwc-ai-gw-ncus-001
 
 Standard tags:
 
     workload = cwc-ai-gw
     environment = dev
-    region = eastus2
+    region = northcentralus
     owner = haripraghash
     managed-by = bicep
     repo = azure-apim-ai-gateway-architecture-lab
@@ -284,7 +287,7 @@ with:
 
 Minimum parameters:
 
-    param location string = 'eastus2'
+    param location string = 'northcentralus'
     param environmentName string = 'dev'
     param expectedRepository string
     param runnerAllowedPublicIp string
@@ -304,6 +307,8 @@ Expected deployment workflow job guard:
 Use these documentation sources during implementation:
 
 - APIM v2 tiers overview: https://learn.microsoft.com/en-us/azure/api-management/v2-service-tiers-overview
+- APIM v2 tier region availability: https://learn.microsoft.com/en-us/azure/api-management/api-management-region-availability
+- Azure OpenAI Responses API: https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses
 - APIM Premium v2 VNet injection: https://learn.microsoft.com/en-us/azure/api-management/inject-vnet-v2
 - APIM custom domains: https://learn.microsoft.com/en-us/azure/api-management/configure-custom-domain
 - Application Gateway backend settings: https://learn.microsoft.com/en-us/azure/application-gateway/configuration-http-settings
@@ -318,4 +323,6 @@ Use these documentation sources during implementation:
 
 ## Revision Notes
 
-2026-05-27: Initial ExecPlan created after grill-me discovery. The plan captures the selected `eastus2` APIM Premium v2 design, guarded public repository workflow constraints, existing runner VNet peering model, and two-phase certificate binding model.
+2026-05-27: Initial ExecPlan created after grill-me discovery. The plan captures the APIM Premium v2 design, guarded public repository workflow constraints, existing runner VNet peering model, and two-phase certificate binding model.
+
+2026-05-30: Updated the deploy target to `northcentralus` after Microsoft documentation showed new APIM Premium v2 instance creation is temporarily unavailable in East US 2 and the Azure OpenAI Responses API is available in North Central US.

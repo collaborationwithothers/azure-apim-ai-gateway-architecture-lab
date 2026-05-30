@@ -384,8 +384,8 @@ while IFS= read -r workflow; do
       "CONFIRM_DESTROY_PHRASE" \
       "inputs.confirm_destroy" \
       "confirm_destroy must exactly match" \
-      "rg-cwc-ai-gw-hub-eus2-001" \
-      "rg-cwc-ai-gw-spoke-eus2-001" \
+      "rg-cwc-ai-gw-hub-ncus-001" \
+      "rg-cwc-ai-gw-spoke-ncus-001" \
       "rg-dv-gh-actions-neu" \
       "vnet-dv-gh-actions-neu" \
       "peer-to-cwc-ai-gw-hub" \

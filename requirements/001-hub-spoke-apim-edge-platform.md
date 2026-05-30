@@ -16,7 +16,7 @@ The lab needs a deployable Azure hub-spoke foundation for an API Management base
 
 ### Goals
 
-Build a subscription-scope Bicep deployment that creates the hub and spoke resource groups in `eastus2`, deploys shared edge and security services into the hub, deploys workload network foundations into the spoke, peers the existing GitHub runner VNet to both hub and spoke, and can be run only through guarded manual GitHub Actions workflows.
+Build a subscription-scope Bicep deployment that creates the hub and spoke resource groups in `northcentralus`, deploys shared edge and security services into the hub, deploys workload network foundations into the spoke, peers the existing GitHub runner VNet to both hub and spoke, and can be run only through guarded manual GitHub Actions workflows.
 
 ### Non-goals
 
@@ -46,7 +46,7 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 ### In-scope
 
 - Subscription-scope Bicep deployment.
-- Hub resource group and spoke resource group in `eastus2`.
+- Hub resource group and spoke resource group in `northcentralus`.
 - Hub VNet, spoke VNet, and direct peerings among hub, spoke, and existing runner VNet.
 - Azure Firewall Standard, Firewall Policy, public IP, and structured diagnostics.
 - Application Gateway WAF v2 in Prevention mode.
@@ -94,24 +94,24 @@ Acceptance criteria:
 
 - `az bicep build --file infra/bicep/main.bicep` succeeds.
 - `az deployment sub what-if` can evaluate both resource groups from one template.
-- Hub RG is `rg-cwc-ai-gw-hub-eus2-001`.
-- Spoke RG is `rg-cwc-ai-gw-spoke-eus2-001`.
+- Hub RG is `rg-cwc-ai-gw-hub-ncus-001`.
+- Spoke RG is `rg-cwc-ai-gw-spoke-ncus-001`.
 
 ### FR-2: Region and subscription
 
-Description: All newly deployed resources must use `eastus2` and target subscription `c7a1d85d-159f-4cfc-bd13-51295c9acb96`.
+Description: All newly deployed resources must use `northcentralus` and target subscription `c7a1d85d-159f-4cfc-bd13-51295c9acb96`.
 
-Rationale: APIM Premium v2 is supported in East US 2, not East US in the current Microsoft region availability table.
+Rationale: Current Microsoft documentation lists North Central US for both APIM Premium v2 and the Azure OpenAI Responses API. East US 2 is not usable for this lab while new APIM Premium v2 instance creation is temporarily unavailable there.
 
 Acceptance criteria:
 
-- Bicep defaults `location` to `eastus2`.
+- Bicep defaults `location` to `northcentralus`.
 - Workflows require the subscription ID as an explicit environment variable or parameter.
 - No newly created resource defaults to the runner VNet region.
 
 ### FR-3: Hub network
 
-Description: Deploy hub VNet `vnet-cwc-ai-gw-hub-eus2-001` with address space `10.10.0.0/16`.
+Description: Deploy hub VNet `vnet-cwc-ai-gw-hub-ncus-001` with address space `10.10.0.0/16`.
 
 Rationale: The hub contains shared network, edge, diagnostics, and security services.
 
@@ -127,7 +127,7 @@ Acceptance criteria:
 
 ### FR-4: Spoke network
 
-Description: Deploy spoke VNet `vnet-cwc-ai-gw-spoke-eus2-001` with address space `10.20.0.0/16`.
+Description: Deploy spoke VNet `vnet-cwc-ai-gw-spoke-ncus-001` with address space `10.20.0.0/16`.
 
 Rationale: The spoke is the future workload network.
 
@@ -193,7 +193,7 @@ Acceptance criteria:
 
 Description: Deploy APIM Premium v2 in the hub VNet with VNet injection.
 
-Rationale: Premium v2 supports the required private gateway pattern in `eastus2`.
+Rationale: Premium v2 supports the required private gateway pattern in `northcentralus`, and the same region is currently listed for the Azure OpenAI Responses API that later AI backend scenarios require.
 
 Acceptance criteria:
 
@@ -305,7 +305,7 @@ Rationale: The lab must demonstrate observable infrastructure behavior.
 
 Acceptance criteria:
 
-- Log Analytics workspace is `log-cwc-ai-gw-eus2-001`.
+- Log Analytics workspace is `log-cwc-ai-gw-ncus-001`.
 - Retention is `30` days.
 - Azure Firewall uses resource-specific tables.
 - Application Gateway WAF, APIM, Key Vault, and ACR diagnostics are enabled.
@@ -371,7 +371,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 | Item | Decision |
 |---|---|
-| Region | `eastus2` for all new resources |
+| Region | `northcentralus` for all new resources |
 | Hub VNet | `10.10.0.0/16` |
 | Spoke VNet | `10.20.0.0/16` |
 | Runner VNet | Existing `172.16.0.0/16`, likely North Europe |
@@ -393,12 +393,13 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 - The deployment identity can be granted `Contributor` at subscription scope and an additional role assignment-capable role where needed before the template creates scoped role assignments.
 - The existing self-hosted runner is reachable through the runner VNet and has Azure CLI, Bicep, and required certificate tooling installed or installable.
 - The parent DNS zone `consultwithcloud.com` can delegate `api.consultwithcloud.com` to Azure DNS name servers.
-- APIM Premium v2 capacity is available in `eastus2` at deployment time.
+- APIM Premium v2 capacity and the required Azure OpenAI model quota are available in `northcentralus` at deployment time.
 
 ## Sources
 
 - [APIM v2 tiers overview](https://learn.microsoft.com/en-us/azure/api-management/v2-service-tiers-overview)
 - [APIM v2 tier region availability](https://learn.microsoft.com/en-us/azure/api-management/api-management-region-availability)
+- [Azure OpenAI Responses API](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses)
 - [Inject APIM Premium v2 in a private VNet](https://learn.microsoft.com/en-us/azure/api-management/inject-vnet-v2)
 - [Configure APIM custom domains](https://learn.microsoft.com/en-us/azure/api-management/configure-custom-domain)
 - [Application Gateway WAF overview](https://learn.microsoft.com/en-us/azure/web-application-firewall/ag/ag-overview)

@@ -2,7 +2,8 @@
 
 ## Fixed decisions
 
-- Region is `eastus2` for new resources.
+- Region is `northcentralus` for new resources because it is currently listed
+  for both APIM Premium v2 and the Azure OpenAI Responses API.
 - Subscription is `c7a1d85d-159f-4cfc-bd13-51295c9acb96`.
 - Hub address space is `10.10.0.0/16`.
 - Spoke address space is `10.20.0.0/16`.

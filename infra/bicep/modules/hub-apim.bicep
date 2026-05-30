@@ -27,7 +27,7 @@ resource privateDnsHubLink 'Microsoft.Network/privateDnsZones/virtualNetworkLink
 }
 
 resource apim 'Microsoft.ApiManagement/service@2025-09-01-preview' = {
-  name: 'apim-cwc-ai-gw-eus2-001'
+  name: 'apim-cwc-ai-gw-ncus-001'
   location: location
   tags: tags
   identity: {

@@ -117,8 +117,8 @@ check_known_values() {
   [[ "${#search_dirs[@]}" -gt 0 ]] || return 0
 
   while IFS= read -r file; do
-    if ! grep -q "eastus2" "$file"; then
-      fail "${file#$root/} references the hub-spoke platform without eastus2"
+    if ! grep -q "northcentralus" "$file"; then
+      fail "${file#$root/} references the hub-spoke platform without northcentralus"
     fi
   done < <(grep -RIl "Hub-Spoke APIM Edge Platform" \
     "${search_dirs[@]}" 2>/dev/null || true)

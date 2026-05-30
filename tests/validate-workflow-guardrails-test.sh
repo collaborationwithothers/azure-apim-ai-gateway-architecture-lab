@@ -123,7 +123,7 @@ jobs:
           az provider show --namespace Microsoft.Insights
           az provider show --namespace Microsoft.OperationalInsights
           az provider show --namespace Microsoft.Web
-          az deployment sub what-if --location eastus2 --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
+          az deployment sub what-if --location northcentralus --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
   apply:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -149,7 +149,7 @@ jobs:
             exit 1
           fi
           az provider register --namespace Microsoft.Network
-          az deployment sub create --location eastus2 --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
+          az deployment sub create --location northcentralus --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
 EOF
   cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
 name: Certificate Issue
@@ -209,13 +209,13 @@ on:
 permissions:
   contents: read
 env:
-  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-eus2-001
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-ncus-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-eus2-001 rg-cwc-ai-gw-spoke-eus2-001
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-ncus-001 rg-cwc-ai-gw-spoke-ncus-001
 jobs:
   preview:
     if: >-
@@ -231,8 +231,8 @@ jobs:
     steps:
       - run: |
           echo preview
-          echo rg-cwc-ai-gw-hub-eus2-001
-          echo rg-cwc-ai-gw-spoke-eus2-001
+          echo rg-cwc-ai-gw-hub-ncus-001
+          echo rg-cwc-ai-gw-spoke-ncus-001
   destroy:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -287,12 +287,12 @@ on:
 permissions:
   contents: read
 env:
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-eus2-001 rg-cwc-ai-gw-spoke-eus2-001
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-ncus-001 rg-cwc-ai-gw-spoke-ncus-001
 jobs:
   destroy:
     if: >-
@@ -345,8 +345,8 @@ on:
 permissions:
   contents: read
 env:
-  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-eus2-001
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-ncus-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
@@ -411,7 +411,7 @@ jobs:
       group: consultwithcloud-azure
       labels: [gh-linux]
     steps:
-      - run: az group delete --name rg-cwc-ai-gw-hub-eus2-001 --yes
+      - run: az group delete --name rg-cwc-ai-gw-hub-ncus-001 --yes
 EOF
   if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-outside.out 2>&1; then
     echo "expected destructive command outside guarded deployment workflow to fail" >&2
@@ -752,7 +752,7 @@ jobs:
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
-      - run: az deployment sub create --location eastus2 --template-file infra/bicep/main.bicep
+      - run: az deployment sub create --location northcentralus --template-file infra/bicep/main.bicep
 EOF
   if "$validator" --root "$dir" >/tmp/workflow-guardrails-command-env.out 2>&1; then
     echo "expected Azure-changing command in unapproved job to fail" >&2

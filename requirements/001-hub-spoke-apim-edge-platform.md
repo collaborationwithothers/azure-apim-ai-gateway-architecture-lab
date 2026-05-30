@@ -379,7 +379,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 ## Open Questions
 
-- What is the current public IP address associated with NAT Gateway `natgw-gh-actions-neu`? The deployment should require `runnerAllowedPublicIp` until this is supplied.
+- What is the current public IP address associated with NAT Gateway `natgw-gh-actions-neu`? The `dev` GitHub Environment should define `RUNNER_ALLOWED_PUBLIC_IP_CIDR` before workflow deployment.
 - What will the expected repository name be after moving to a GitHub organization? The workflow currently uses a literal repository guard and must be deliberately changed during the move.
 - Which exact AVM module versions will be selected during implementation?
 

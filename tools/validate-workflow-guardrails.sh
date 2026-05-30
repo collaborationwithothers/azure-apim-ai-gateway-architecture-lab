@@ -307,6 +307,18 @@ while IFS= read -r workflow; do
   fi
 
   if [[ "$rel" == ".github/workflows/infra-deploy.yml" ]]; then
+    if has_literal "runner_allowed_public_ip:" "$workflow"; then
+      fail "$rel must not require runner_allowed_public_ip as a manual workflow input"
+    fi
+
+    if ! has_literal "vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR" "$workflow"; then
+      fail "$rel must read the runner NAT CIDR from vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR"
+    fi
+
+    if ! has_literal "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value" "$workflow"; then
+      fail "$rel must validate the runner NAT CIDR GitHub variable before deployment"
+    fi
+
     provider_register_in_what_if="$(what_if_jobs_with_provider_registration "$workflow")"
     if [[ -n "$provider_register_in_what_if" ]]; then
       fail "$rel must not run az provider register in what-if jobs"

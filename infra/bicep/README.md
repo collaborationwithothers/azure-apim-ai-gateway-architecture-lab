@@ -51,6 +51,13 @@ Run the workflow guardrail tests after editing workflows:
     bash tools/validate-workflow-guardrails.sh
     bash tests/validate-workflow-guardrails-test.sh
 
+## GitHub Environment Configuration
+
+Set `RUNNER_ALLOWED_PUBLIC_IP_CIDR` as a variable on the `dev` GitHub
+Environment before running `.github/workflows/infra-deploy.yml` in `what-if` or
+`apply` mode. The value must be the runner NAT public IP in CIDR form, for
+example `203.0.113.10/32`.
+
 ## Manual Azure Commands
 
 Validate from an authenticated shell:
@@ -83,7 +90,7 @@ This pass uses local raw Bicep resources instead of Azure Verified Modules. The 
 
 ## Open Operational Inputs
 
-- Runner NAT public IP for `runnerAllowedPublicIp`.
+- `RUNNER_ALLOWED_PUBLIC_IP_CIDR` variable on the `dev` GitHub Environment.
 - Service principal object ID for the certificate workflow OIDC identity, if the deployment should assign Key Vault Certificates Officer and Key Vault Secrets User.
 - `dev` GitHub Environment approval setup for Azure-changing jobs.
 - Azure federated identity credentials for GitHub OIDC.

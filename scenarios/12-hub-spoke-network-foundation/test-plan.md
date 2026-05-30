@@ -50,6 +50,9 @@ az deployment sub what-if \
 Expected result: only the intended hub, spoke, edge, diagnostics, DNS,
 certificate-support, and peering resources appear.
 
+For the GitHub Actions path, `runnerAllowedPublicIp` is populated from the
+`RUNNER_ALLOWED_PUBLIC_IP_CIDR` variable on the `dev` GitHub Environment.
+
 ## Post-apply checks
 
 - Hub and spoke resource groups exist in `eastus2`.

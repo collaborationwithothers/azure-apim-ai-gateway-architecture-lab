@@ -1,10 +1,10 @@
 # Azure APIM AI Gateway Architecture Lab
 
-This repository is a documentation-first architecture lab and portfolio project
-for designing Azure API Management as an enterprise AI gateway in front of Azure
-AI Foundry and Azure OpenAI workloads. It is not a production deployment
-template and does not include real tenant IDs, secrets, endpoints, or
-subscription-specific parameters.
+This repository is an architecture lab and deployable Azure APIM AI gateway
+foundation. It contains scenario documentation, APIM policy examples, and a
+guarded hub-spoke deployment path for `api.consultwithcloud.com`. It is not a
+production baseline and does not include real tenant secrets, local parameter
+files, or generated deployment outputs.
 
 Modern enterprise AI applications should not call LLM backends directly. They
 need an AI gateway layer to centralise access control, token governance,
@@ -33,6 +33,13 @@ for regulated environments.
 
 See [docs/02-reference-architecture.md](docs/02-reference-architecture.md) and
 [diagrams/mermaid/high-level-architecture.md](diagrams/mermaid/high-level-architecture.md).
+
+The first deployable platform slice is the hub-spoke APIM edge platform in
+`eastus2`. It creates hub and spoke resource groups, deploys APIM Premium v2 in
+a delegated hub subnet, places Application Gateway WAF v2 in front of APIM,
+routes future spoke workload egress through Azure Firewall Standard, and sends
+diagnostics to Log Analytics. The public hostname is
+`api.consultwithcloud.com`.
 
 ## Why APIM as an AI gateway
 
@@ -72,8 +79,8 @@ failover behavior, cost controls, and ownership.
 | `policies/examples/`              | Illustrative APIM policy XML files with environment-specific TODOs.                        |
 | `diagrams/mermaid/`               | Mermaid source diagrams for the architecture flows.                                        |
 | `observability/app-insights-kql/` | KQL placeholders for token, latency, cache, throttling, and cost analysis.                 |
-| `infra/bicep/`                    | Safe Bicep skeleton only. It compiles but intentionally does not deploy resources yet.     |
-| `.github/workflows/`              | Safe validation workflow templates.                                                        |
+| `infra/bicep/`                    | Subscription-scope Bicep for the hub-spoke APIM edge platform.                             |
+| `.github/workflows/`              | Manual guarded workflows for validation, deployment, and certificate issuance.              |
 
 ## How to use this repo
 
@@ -82,27 +89,51 @@ failover behavior, cost controls, and ownership.
 2. Review the scenario folders in order. Each README is a mini case study.
 3. Inspect the example policies under [policies/examples/](policies/examples/).
 4. Render the Mermaid files or view them directly in GitHub.
-5. Run local validation commands before changing the scaffold.
+5. Review [infra/bicep/README.md](infra/bicep/README.md) before running deployment workflows.
 
 Local checks:
 
     git diff --check
     rg -n "PLACEHOLDER_SECRET|real-tenant|prod.example" .
     az bicep build --file infra/bicep/main.bicep
+    rg -n "pull_request|pull_request_target" .github/workflows
+    bash tools/validate-workflow-guardrails.sh
     xmllint --noout policies/examples/*.xml
+
+## Deployment overview
+
+Deployments are manual, guarded, and intended for the repository owner from
+`main` only. Azure-changing jobs run on `[self-hosted, linux, x64,
+cwc-azure-deploy]`, use OIDC through a SHA-pinned `azure/login`, require
+`github.actor == 'haripraghash'`, check the literal repository name, and use
+the fixed `dev` GitHub Environment approval.
+
+Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`.
+The workflow accepts the required non-secret deployment inputs directly,
+including `runner_allowed_public_ip`, `enable_public_edge`,
+`enable_custom_domain`, optional `custom_domain_certificate_secret_uri`, and optional
+`certificate_issuer_principal_id`.
+Use `.github/workflows/certificate-issue.yml` only after phase 1 has created the
+Azure DNS child zone and Key Vault. The certificate workflow imports a PFX
+certificate into Key Vault for Application Gateway TLS termination. The
+deployment is two-phase:
+
+1. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
+2. Delegate `api.consultwithcloud.com` from the parent DNS zone.
+3. Run the certificate workflow to import `cert-api-consultwithcloud-com`.
+4. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
+5. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
 
 ## Demo roadmap
 
-The first pass is intentionally documentation-first. The next implementation
-waves are:
+The first deployable infrastructure slice is now captured in Bicep and guarded
+workflows. Next implementation waves are:
 
-1. Add a mock backend and contract tests.
-2. Add APIM policy import automation.
-3. Add safe Bicep modules for APIM, monitoring, Key Vault, cache, and optional
-   private networking.
+1. Run the first subscription what-if from the self-hosted runner.
+2. Add a mock backend and contract tests.
+3. Add APIM policy import automation.
 4. Add load tests and sample dashboards.
-5. Add a controlled dev deployment path once environment-specific values are
-   supplied outside source control.
+5. Revisit AVM composition after the first successful apply.
 
 ## Architecture principles
 
@@ -110,8 +141,8 @@ waves are:
 - Prefer managed identity to shared keys for backend access where supported.
 - Keep tenant identity, quota, cache partitioning, routing, and logging
   dimensions aligned.
-- Avoid logging prompts or completions unless there is a reviewed data handling
-  policy.
+- Treat APIM body logging as sensitive telemetry that needs reviewed data
+  handling before real traffic is sent.
 - Make failure behavior explicit before enabling retries, fallback, or degraded
   mode.
 - Validate policy behavior with contract tests and operational queries before
@@ -125,6 +156,12 @@ instance without reviewing identity, network exposure, data logging, content
 safety, cache partitioning, rate limits, backend auth, and incident response
 requirements.
 
+APIM body logging is intentionally enabled for the lab. It can ingest prompts,
+completions, request bodies, response bodies, secrets, or regulated data into
+Azure Monitor and Log Analytics. Do not send production, customer, credential,
+or regulated data through this lab until logging, masking, retention, and access
+controls have been reviewed.
+
 ## Cost disclaimer
 
 The examples discuss cost drivers but do not estimate real subscription charges.
@@ -135,9 +172,9 @@ materially change cost.
 ## Next steps
 
 Use the scenario packs to decide which controls matter for your workload, then
-convert the TODOs into environment-specific implementation tasks. Keep source
-control free of secrets, generated deployment outputs, and local parameter
-files.
+run deployment preflight from the guarded workflow. Keep source control free of
+secrets, generated deployment outputs, local parameter files, certificate files,
+PFX files, and ACME account keys.
 
 ## Sources
 
@@ -146,3 +183,4 @@ files.
 - [Access Foundry Models and other language models through a gateway](https://learn.microsoft.com/azure/architecture/ai-ml/guide/azure-openai-gateway-guide)
 - [Use a gateway in front of multiple Azure OpenAI deployments or instances](https://learn.microsoft.com/azure/architecture/ai-ml/guide/azure-openai-gateway-multi-backend)
 - [Bicep what-if deployment preview](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deploy-what-if)
+- [TLS termination with Key Vault certificates](https://learn.microsoft.com/azure/application-gateway/key-vault-certs)

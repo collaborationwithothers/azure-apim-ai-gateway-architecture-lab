@@ -16,12 +16,12 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
 - [x] (2026-05-27) Created `requirements/001-hub-spoke-apim-edge-platform.md`.
 - [x] (2026-05-27) Created `design-log/001-hub-spoke-apim-edge-platform.md`.
 - [x] (2026-05-27) Created this implementation plan.
-- [ ] Refactor Bicep from resource-group scope to subscription scope.
-- [ ] Add hub and spoke Bicep modules.
-- [ ] Add guarded GitHub Actions deployment workflow.
-- [ ] Add guarded certificate issuance workflow.
-- [ ] Update README and infra README with run instructions and warnings.
-- [ ] Validate Bicep build and documentation formatting.
+- [x] (2026-05-30) Refactored Bicep from resource-group scope to subscription scope.
+- [x] (2026-05-30) Added hub, spoke, and runner peering Bicep modules.
+- [x] (2026-05-30) Added guarded GitHub Actions deployment workflow.
+- [x] (2026-05-30) Added guarded certificate issuance workflow.
+- [x] (2026-05-30) Updated README and infra README with run instructions and warnings.
+- [x] (2026-05-30) Validated Bicep build and documentation formatting.
 
 ## Surprises & Discoveries
 
@@ -81,13 +81,13 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
 
 ## Outcomes & Retrospective
 
-No implementation outcome yet. This plan captures the agreed architecture and should be updated after each milestone with actual validation results and any deviations.
+The first implementation pass created the subscription-scope Bicep entry point, resource-group-scoped hub and spoke modules, runner peering module, guarded deployment workflow, guarded certificate workflow, and deployment runbook documentation. Local validation completed for Bicep build, workflow guardrails, Markdown linting, whitespace, workflow trigger search, and secret-pattern search.
 
 ## Context and Orientation
 
 The repository root is `/Users/harisubramaniam/learning/azure-ai/azure-apim-ai-gateway-architecture-lab`.
 
-The existing infrastructure file `infra/bicep/main.bicep` is a resource-group-scope skeleton that currently outputs metadata only. It must become a subscription-scope deployment because the target state creates two resource groups and deploys resources into both.
+The infrastructure file `infra/bicep/main.bicep` is now a subscription-scope deployment because the target state creates two resource groups and deploys resources into both.
 
 The repository already has placeholder workflow files under `.github/workflows/`. They must be replaced or updated so public forked pull requests cannot run Azure deployment logic.
 
@@ -104,7 +104,7 @@ Important terms:
 
 ## Plan of Work
 
-Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Add parameters for subscription-scale settings: `location`, `environmentName`, `namePrefix`, `expectedRepository`, `runnerAllowedPublicIp`, `enableCustomDomain`, and any certificate secret URI values needed for phase two. Create both resource groups in this file, then call resource-group-scoped modules for hub and spoke.
+Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Add parameters for subscription-scale settings: `location`, `environmentName`, `namePrefix`, `expectedRepository`, `runnerAllowedPublicIp`, `enablePublicEdge`, `enableCustomDomain`, and any certificate secret URI values needed for phase two and phase three. Create both resource groups in this file, then call resource-group-scoped modules for hub and spoke.
 
 Create a module folder under `infra/bicep/modules/`. Use Azure Verified Modules for resource types where the module is available, works cleanly, and can be pinned to an explicit version. Use raw Bicep for VNet peerings, route tables, diagnostic settings, DNS records, and other cross-resource wiring where raw resources are clearer.
 
@@ -114,11 +114,11 @@ Implement the spoke module second. It must deploy the spoke VNet and subnets, ro
 
 Implement peerings after both VNets exist. Add bidirectional peering for hub-spoke, hub-runner, and spoke-runner. Reference the runner VNet as existing in resource group `rg-dv-gh-actions-neu` with name `vnet-dv-gh-actions-neu`.
 
-Add `infra-deploy.yml` as a guarded manual workflow. It must accept `mode` as `validate`, `what-if`, or `apply`. It must run on `[self-hosted, linux, x64, cwc-azure-deploy]`, use OIDC Azure login, register required Azure providers, restore and build Bicep, and only run what-if or apply after the actor, repository, branch, and environment approval checks pass.
+Add `infra-deploy.yml` as a guarded manual workflow. It must accept `mode` as `validate`, `what-if`, or `apply`. It must run on `[self-hosted, linux, x64, cwc-azure-deploy]`, use SHA-pinned OIDC Azure login, restore and build Bicep, and only run what-if or apply after the actor, literal repository, branch, and fixed `dev` environment approval checks pass. The apply job registers required Azure providers. The what-if job only verifies provider registration state before running what-if.
 
 Add `certificate-issue.yml` as a separate guarded manual workflow. It runs after initial infrastructure exists. It must create the ACME DNS-01 challenge in the Azure DNS child zone, issue a Let's Encrypt certificate for `api.consultwithcloud.com`, and import it into Key Vault as `cert-api-consultwithcloud-com`. Do not commit certificate files or ACME secrets.
 
-Update `README.md` and `infra/bicep/README.md`. The README must warn that APIM body logging is enabled and can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data. The infra README must describe the two-phase deployment: initial infrastructure, certificate issuance, then re-run infrastructure with custom domain enabled.
+Update `README.md` and `infra/bicep/README.md`. The README must warn that APIM body logging is enabled and can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data. The infra README must describe the staged deployment: initial infrastructure, certificate issuance, public edge and DNS alias, then APIM custom domain binding after DNS resolution is visible.
 
 ## Concrete Steps
 
@@ -153,7 +153,7 @@ Run what-if before apply:
       --location eastus2 \
       --template-file infra/bicep/main.bicep \
       --parameters location=eastus2 \
-      --parameters runnerAllowedPublicIp=<runner-nat-public-ip>
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
 Run apply only after reviewing what-if:
 
@@ -161,9 +161,9 @@ Run apply only after reviewing what-if:
       --location eastus2 \
       --template-file infra/bicep/main.bicep \
       --parameters location=eastus2 \
-      --parameters runnerAllowedPublicIp=<runner-nat-public-ip>
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. After the certificate exists in Key Vault, re-run the infrastructure workflow with custom domain enabled.
+After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
 
 ## Validation and Acceptance
 
@@ -209,11 +209,11 @@ Expected result is HTTP 200 with APIM service health content. If the public DNS 
 
 ## Idempotence and Recovery
 
-Bicep deployments must be incremental and safe to rerun. Re-running the validate and what-if modes must not modify Azure resources. Re-running apply should update drifted settings back to the declared state.
+Bicep deployments must be incremental and safe to rerun. Re-running the validate and what-if modes must not modify Azure resources. What-if checks provider registration state but does not register providers. Re-running apply should update drifted settings back to the declared state.
 
 If certificate issuance fails, leave infrastructure intact. Remove only temporary ACME challenge DNS records created by the workflow, then rerun the certificate workflow.
 
-If APIM custom domain binding fails because the certificate does not exist, rerun the infrastructure deployment with `enableCustomDomain = false`, confirm the certificate workflow has imported `cert-api-consultwithcloud-com`, then rerun with `enableCustomDomain = true`.
+If APIM custom domain binding fails because the certificate or public DNS is not ready, rerun the infrastructure deployment with `enablePublicEdge = true` and `enableCustomDomain = false`, confirm the certificate workflow has imported `cert-api-consultwithcloud-com`, confirm public DNS resolution, then rerun with both values set to `true`.
 
 If WAF Prevention blocks legitimate APIM traffic, inspect Application Gateway WAF logs in Log Analytics and add narrow exclusions only for the specific rule, request component, and hostname required. Do not disable WAF globally.
 
@@ -273,6 +273,7 @@ Minimum parameters:
     param environmentName string = 'dev'
     param expectedRepository string
     param runnerAllowedPublicIp string
+    param enablePublicEdge bool = false
     param enableCustomDomain bool = false
 
 Expected GitHub workflow permissions:
@@ -283,7 +284,7 @@ Expected GitHub workflow permissions:
 
 Expected deployment workflow job guard:
 
-    if: github.actor == 'haripraghash' && github.repository == inputs.expected_repository && github.ref == 'refs/heads/main'
+    if: github.actor == 'haripraghash' && github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' && github.ref == 'refs/heads/main'
 
 Use these documentation sources during implementation:
 

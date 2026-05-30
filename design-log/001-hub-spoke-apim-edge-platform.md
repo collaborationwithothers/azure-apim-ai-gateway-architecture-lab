@@ -2,7 +2,7 @@
 
 ## Background
 
-This repository is a documentation-first Azure APIM AI gateway lab. The current infrastructure is a safe Bicep skeleton and does not deploy live Azure resources. The next target state is a real deployable hub-spoke platform in Azure with APIM Premium v2, Application Gateway WAF, Azure Firewall, DNS, certificate management, diagnostics, ACR, Key Vault, and guarded GitHub Actions.
+This repository is an Azure APIM AI gateway lab with a deployable first infrastructure slice. The current implementation declares a hub-spoke platform in Azure with APIM Premium v2, Application Gateway WAF, Azure Firewall, DNS, certificate management, diagnostics, ACR, Key Vault, and guarded GitHub Actions.
 
 The implementation must follow `requirements/001-hub-spoke-apim-edge-platform.md`.
 
@@ -86,7 +86,7 @@ A: A separate guarded manual GitHub Actions workflow performs ACME DNS-01 valida
 
 Q: Are request and response bodies logged in APIM?
 
-A: Yes, intentionally for the lab, with a README warning that prompts, completions, and sensitive content can be ingested into Log Analytics.
+A: Yes, intentionally for the lab, with a README warning that prompts, completions, request bodies, response bodies, secrets, or regulated data can be ingested into Azure Monitor and Log Analytics.
 
 ## Design
 
@@ -131,9 +131,9 @@ The spoke VNet uses:
 The edge path is:
 
 1. Public DNS child zone `api.consultwithcloud.com` has an apex alias `A` record to the Application Gateway public IP.
-2. Application Gateway WAF v2 uses a Key Vault certificate for `api.consultwithcloud.com`.
+2. Application Gateway WAF v2 uses a Key Vault PFX certificate for `api.consultwithcloud.com`.
 3. Application Gateway backend HTTPS settings use host and SNI `api.consultwithcloud.com`.
-4. APIM Premium v2 has the same gateway custom domain and certificate from Key Vault.
+4. APIM Premium v2 has the same gateway custom domain and certificate from Key Vault after public DNS resolution to Application Gateway is visible.
 5. Private DNS maps the APIM gateway hostname to the APIM private IP for in-network resolution.
 
 GitHub Actions uses two manual workflows:
@@ -148,20 +148,21 @@ Both workflows use:
 - No `pull_request_target`.
 - `permissions: contents: read, id-token: write`.
 - `runs-on: [self-hosted, linux, x64, cwc-azure-deploy]`.
-- Job `if` guards for actor, expected repository, and `refs/heads/main`.
-- GitHub Environment approval before Azure-changing jobs.
+- Job `if` guards for actor, literal repository, and `refs/heads/main`.
+- Fixed `dev` GitHub Environment approval before Azure-changing jobs.
+- Full commit SHA pinning for third-party actions.
 
 ## Implementation Plan
 
-1. Update documentation first. Add this design log, add REQ-001, add the ExecPlan, and update indexes.
-2. Refactor `infra/bicep/main.bicep` to subscription scope.
-3. Add Bicep parameters and environment parameter files that avoid secrets in source control.
-4. Add hub and spoke modules, using AVM modules where they fit and raw Bicep for peerings, route tables, diagnostics, and custom wiring.
-5. Add Log Analytics, Firewall, Application Gateway, APIM, Key Vault, ACR, DNS, diagnostic settings, managed identities, and role assignments.
-6. Add workflow guards and OIDC Azure login.
-7. Add certificate workflow after the initial infra deployment can create DNS and Key Vault.
-8. Update README files with warnings and runbook steps.
-9. Validate with Bicep build, what-if, and workflow syntax checks.
+1. Documentation was captured first in this design log, REQ-001, and the ExecPlan.
+2. `infra/bicep/main.bicep` now uses subscription scope.
+3. Bicep parameters avoid secrets and keep environment-specific values outside source control.
+4. Hub, spoke, and runner peering modules use raw Bicep for cross-resource wiring.
+5. The implementation declares Log Analytics, Firewall, APIM subnet NSG dependency rules, Application Gateway, APIM, Key Vault, ACR, DNS, diagnostic settings, managed identities, and role assignments.
+6. `.github/workflows/infra-deploy.yml` adds workflow guards and OIDC Azure login.
+7. `.github/workflows/certificate-issue.yml` issues the ACME DNS-01 certificate after initial infrastructure creates DNS and Key Vault, converts it to PFX, and imports it into Key Vault.
+8. README files include warnings and runbook steps.
+9. Local validation covers Bicep build, workflow guardrails, Markdown linting, and trigger and secret-pattern searches.
 
 ## Examples
 
@@ -206,11 +207,13 @@ Using Application Gateway WAF gives public ingress and WAF inspection but means 
 
 Using the existing North Europe runner VNet avoids creating another runner network now, but global peering adds latency and possible data transfer charges.
 
-Avoiding private endpoints for Key Vault and ACR keeps the first deployment simpler and compatible with the existing runner NAT model, but it relies on public network firewall restrictions.
+Avoiding private endpoints for Key Vault and ACR keeps the first deployment simpler and compatible with the existing runner NAT model, but it relies on public network firewall restrictions. Application Gateway and APIM certificate retrieval use managed identities plus Key Vault service endpoints and vault VNet rules for `snet-appgw` and `snet-apim`.
 
 Starting WAF in Prevention mode increases security but may block legitimate traffic until WAF logs are reviewed and narrow exclusions are added.
 
-Enabling APIM body logging improves demo observability but increases data sensitivity and ingestion cost.
+When `wafAllowedSourceCidrs` is configured, blocking sources outside the list preserves managed WAF rule evaluation for allowed sources. An allow custom rule would stop managed rule evaluation after a match.
+
+Enabling APIM body logging improves demo observability but increases data sensitivity and ingestion cost because prompts, completions, request bodies, response bodies, secrets, or regulated data can be captured.
 
 ## Verification Criteria
 
@@ -239,4 +242,3 @@ Enabling APIM body logging improves demo observability but increases data sensit
 - [ACR authentication options](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication)
 - [Deploy Bicep with GitHub Actions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deploy-github-actions)
 - [GitHub OIDC reference](https://docs.github.com/en/actions/reference/security/oidc)
-

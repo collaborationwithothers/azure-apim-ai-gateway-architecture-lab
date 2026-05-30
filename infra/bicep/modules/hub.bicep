@@ -7,7 +7,7 @@ param enablePublicEdge bool
 param enableCustomDomain bool
 param publicHostname string
 param customDomainCertificateSecretUri string
-param certificateIssuerPrincipalId string
+param deploymentAdminGroupObjectId string
 param wafAllowedSourceCidrs array
 
 module network './hub-network.bicep' = {
@@ -77,11 +77,10 @@ module rbac './hub-rbac.bicep' = {
   name: 'hub-rbac'
   params: {
     keyVaultName: security.outputs.keyVaultName
-    appGwIdentityId: security.outputs.appGwIdentityId
+    acrName: security.outputs.acrName
     appGwIdentityPrincipalId: security.outputs.appGwIdentityPrincipalId
-    apimId: apim.outputs.apimId
     apimPrincipalId: apim.outputs.apimPrincipalId
-    certificateIssuerPrincipalId: certificateIssuerPrincipalId
+    deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
   }
 }
 

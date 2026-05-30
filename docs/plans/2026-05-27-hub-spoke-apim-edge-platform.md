@@ -108,7 +108,7 @@ Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Ad
 
 Create a module folder under `infra/bicep/modules/`. Use Azure Verified Modules for resource types where the module is available, works cleanly, and can be pinned to an explicit version. Use raw Bicep for VNet peerings, route tables, diagnostic settings, DNS records, and other cross-resource wiring where raw resources are clearer.
 
-Implement the hub module first. It must deploy the hub VNet and subnets, Azure Firewall Standard and Firewall Policy, Log Analytics workspace, Key Vault, ACR, Application Gateway WAF, APIM Premium v2, public DNS zone, private DNS for APIM gateway resolution, identities, role assignments, and diagnostic settings.
+Implement the hub module first. It must deploy the hub VNet and subnets, Azure Firewall Standard and Firewall Policy, Log Analytics workspace, Key Vault, ACR, Application Gateway WAF, APIM Premium v2, public DNS zone, private DNS for APIM gateway resolution, identities, role assignments, and diagnostic settings. The deployment admin group receives Key Vault Administrator at the lab vault scope and AcrPush at the lab ACR scope. The workflow identity must already have management-plane permission to create role assignments before the template can create these assignments.
 
 Implement the spoke module second. It must deploy the spoke VNet and subnets, route tables for `snet-workload` and `snet-aks`, and spoke-side diagnostic-ready tags. It must not deploy AKS.
 
@@ -163,7 +163,7 @@ Run apply only after reviewing what-if:
       --parameters location=eastus2 \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
+After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
 
 For the guarded workflow path, set `RUNNER_ALLOWED_PUBLIC_IP_CIDR` as a variable on the `dev` GitHub Environment. The workflow passes that value to the Bicep `runnerAllowedPublicIp` parameter so operators do not type the runner NAT CIDR for every run.
 
@@ -198,6 +198,9 @@ Azure validation after apply:
 - APIM Premium v2 exists with a private gateway and one unit.
 - Key Vault has purge protection enabled.
 - ACR admin user is disabled.
+- The deployment admin group has Key Vault Administrator on the lab vault.
+- The deployment admin group has AcrPush on the lab ACR.
+- APIM and Application Gateway have only their required Key Vault certificate access roles.
 - Log Analytics has 30-day retention.
 - Azure Firewall threat intelligence mode is `Alert and deny`.
 - Azure Firewall logs land in resource-specific tables such as `AZFWApplicationRule`.

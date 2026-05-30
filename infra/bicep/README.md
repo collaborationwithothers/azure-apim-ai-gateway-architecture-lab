@@ -16,7 +16,7 @@
 | `hub-firewall.bicep` | Firewall Policy, Azure Firewall public IP, and Azure Firewall. |
 | `hub-apim.bicep` | APIM Premium v2, APIM Azure Monitor diagnostic configuration, private DNS zone, hub VNet link, and private APIM A record. |
 | `hub-edge.bicep` | WAF policy, Application Gateway public IP, public DNS child zone, Application Gateway, and public DNS alias. |
-| `hub-rbac.bicep` | Key Vault role assignments for APIM, Application Gateway, and optional certificate issuer identity. |
+| `hub-rbac.bicep` | Key Vault and ACR role assignments for deployment administrators, APIM, and Application Gateway. |
 | `hub-diagnostics.bicep` | Azure Monitor diagnostic settings for hub resources. |
 
 Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, and private IPs through module parameters and outputs instead of relying on implicit resource ordering across files.
@@ -32,7 +32,7 @@ Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, a
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
 | `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
 | `customDomainCertificateSecretUri` | Versionless Key Vault secret URI for `cert-api-consultwithcloud-com`. |
-| `certificateIssuerPrincipalId` | Optional service principal object ID for the certificate workflow OIDC identity. When set, it receives Key Vault Certificates Officer and Key Vault Secrets User on the lab vault. |
+| `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
 | `runnerVnetName` | Existing runner VNet. Defaults to `vnet-dv-gh-actions-neu`. |
@@ -99,9 +99,30 @@ Run apply:
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-For phase 2, set `enablePublicEdge=true` after `cert-api-consultwithcloud-com` exists in Key Vault. For phase 3, keep `enablePublicEdge=true` and set `enableCustomDomain=true` after public DNS resolution is visible. If the certificate workflow identity should receive Key Vault import and read rights from the deployment, pass `certificateIssuerPrincipalId=<service-principal-object-id>` during phase 1. APIM receives Key Vault Secrets User and Key Vault Certificate User, and Application Gateway receives Key Vault Secrets User.
+For phase 2, set `enablePublicEdge=true` after `cert-api-consultwithcloud-com` exists in Key Vault. For phase 3, keep `enablePublicEdge=true` and set `enableCustomDomain=true` after public DNS resolution is visible. The certificate workflow uses the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for Key Vault certificate operations.
 
 Use the guarded workflow for normal operation. Manual commands are for local operator preflight only.
+
+## RBAC Model
+
+The permanent deployment admin group receives Key Vault Administrator at the lab
+Key Vault scope and AcrPush at the lab ACR scope. These assignments let
+deployment service principals in the group perform certificate operations and
+push platform images without granting those runtime rights to APIM or
+Application Gateway.
+
+The workflow identity must already have management-plane permission to create
+role assignments before this template can grant Key Vault or ACR access. Key
+Vault Administrator is a data-plane role on the vault; it does not grant
+permission to create Azure RBAC assignments.
+
+APIM receives Key Vault Secrets User and Key Vault Certificate User because it
+references the gateway certificate from Key Vault. Application Gateway receives
+Key Vault Secrets User because it retrieves the TLS certificate secret. ACR
+access for APIM, Application Gateway, and future workload identities is
+intentionally deferred until a concrete container image consumer exists. ACR
+ABAC and repository-scoped permissions are also deferred to a separate design
+decision.
 
 ## AVM Decision
 
@@ -110,7 +131,7 @@ This pass uses local raw Bicep resources instead of Azure Verified Modules. The 
 ## Open Operational Inputs
 
 - `RUNNER_ALLOWED_PUBLIC_IP_CIDR` variable on the `dev` GitHub Environment.
-- Service principal object ID for the certificate workflow OIDC identity, if the deployment should assign Key Vault Certificates Officer and Key Vault Secrets User.
+- Management-plane role assignment permissions for the workflow identity before first deployment.
 - `dev` GitHub Environment approval setup for Azure-changing jobs.
 - Azure federated identity credentials for GitHub OIDC.
 - Parent DNS zone delegation for `api.consultwithcloud.com`.

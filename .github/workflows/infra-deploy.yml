@@ -48,10 +48,6 @@ on:
         description: Optional versionless Key Vault secret URI for the PFX certificate.
         required: false
         default: ""
-      certificate_issuer_principal_id:
-        description: Optional service principal object ID that imports certificates into Key Vault.
-        required: false
-        default: ""
       deployment_name:
         description: Azure subscription deployment name.
         required: true
@@ -67,7 +63,6 @@ env:
   ENABLE_PUBLIC_EDGE: ${{ inputs.enable_public_edge }}
   ENABLE_CUSTOM_DOMAIN: ${{ inputs.enable_custom_domain }}
   CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI: ${{ inputs.custom_domain_certificate_secret_uri }}
-  CERTIFICATE_ISSUER_PRINCIPAL_ID: ${{ inputs.certificate_issuer_principal_id }}
   DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
 
 jobs:
@@ -181,9 +176,6 @@ jobs:
           if [[ -n "$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" ]]; then
             args+=(customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
           fi
-          if [[ -n "$CERTIFICATE_ISSUER_PRINCIPAL_ID" ]]; then
-            args+=(certificateIssuerPrincipalId="$CERTIFICATE_ISSUER_PRINCIPAL_ID")
-          fi
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")
           fi
@@ -271,9 +263,6 @@ jobs:
           )
           if [[ -n "$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" ]]; then
             args+=(customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
-          fi
-          if [[ -n "$CERTIFICATE_ISSUER_PRINCIPAL_ID" ]]; then
-            args+=(certificateIssuerPrincipalId="$CERTIFICATE_ISSUER_PRINCIPAL_ID")
           fi
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")

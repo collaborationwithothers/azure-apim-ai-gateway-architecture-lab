@@ -354,7 +354,11 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 - APIM body logging is intentionally enabled for the lab and must be clearly warned about because it can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data.
 - Do not commit secrets, PFX files, ACME account keys, tenant credentials, or generated deployment outputs.
-- The certificate workflow identity must have Key Vault certificate import and read permission. The Bicep deployment can assign Key Vault Certificates Officer and Key Vault Secrets User when `certificateIssuerPrincipalId` is supplied.
+- The certificate workflow uses the same OIDC identity path as the infrastructure workflow. Deployment service principals must receive Key Vault certificate operation access through the permanent deployment admin group.
+- The permanent deployment admin group must receive Key Vault Administrator at the lab vault scope and AcrPush at the lab ACR scope.
+- The workflow identity must already have management-plane permission to create role assignments before the Bicep deployment can grant Key Vault or ACR access.
+- APIM receives Key Vault Secrets User and Key Vault Certificate User. Application Gateway receives Key Vault Secrets User.
+- ACR access for APIM, Application Gateway, and future workload identities is intentionally deferred until a concrete container image consumer exists.
 - The APIM Premium v2 injected subnet must include the service dependency NSG rules required for outbound Storage and Azure Key Vault access.
 - The Application Gateway and APIM subnets must have Key Vault service endpoint access to the vault so managed identities can retrieve TLS certificates through restricted vault networking.
 - Key Vault must use soft delete and purge protection.
@@ -385,7 +389,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 ## Assumptions
 
-- The deployment identity can be granted `Contributor` at subscription scope and an additional role assignment-capable role where needed.
+- The deployment identity can be granted `Contributor` at subscription scope and an additional role assignment-capable role where needed before the template creates scoped role assignments.
 - The existing self-hosted runner is reachable through the runner VNet and has Azure CLI, Bicep, and required certificate tooling installed or installable.
 - The parent DNS zone `consultwithcloud.com` can delegate `api.consultwithcloud.com` to Azure DNS name servers.
 - APIM Premium v2 capacity is available in `eastus2` at deployment time.

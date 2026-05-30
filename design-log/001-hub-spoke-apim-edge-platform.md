@@ -159,10 +159,11 @@ Both workflows use:
 3. Bicep parameters avoid secrets and keep environment-specific values outside source control.
 4. Hub, spoke, and runner peering modules use raw Bicep for cross-resource wiring.
 5. The implementation declares Log Analytics, Firewall, APIM subnet NSG dependency rules, Application Gateway, APIM, Key Vault, ACR, DNS, diagnostic settings, managed identities, and role assignments.
-6. `.github/workflows/infra-deploy.yml` adds workflow guards and OIDC Azure login.
-7. `.github/workflows/certificate-issue.yml` issues the ACME DNS-01 certificate after initial infrastructure creates DNS and Key Vault, converts it to PFX, and imports it into Key Vault.
-8. README files include warnings and runbook steps.
-9. Local validation covers Bicep build, workflow guardrails, Markdown linting, and trigger and secret-pattern searches.
+6. The permanent deployment admin group receives Key Vault Administrator at the lab vault scope and AcrPush at the lab ACR scope. The workflow identity must already have management-plane permission to create role assignments before the template can create these assignments.
+7. `.github/workflows/infra-deploy.yml` adds workflow guards and OIDC Azure login.
+8. `.github/workflows/certificate-issue.yml` issues the ACME DNS-01 certificate after initial infrastructure creates DNS and Key Vault, converts it to PFX, and imports it into Key Vault.
+9. README files include warnings and runbook steps.
+10. Local validation covers Bicep build, workflow guardrails, Markdown linting, and trigger and secret-pattern searches.
 
 ## Examples
 
@@ -209,6 +210,11 @@ Using the existing North Europe runner VNet avoids creating another runner netwo
 
 Avoiding private endpoints for Key Vault and ACR keeps the first deployment simpler and compatible with the existing runner NAT model, but it relies on public network firewall restrictions. Application Gateway and APIM certificate retrieval use managed identities plus Key Vault service endpoints and vault VNet rules for `snet-appgw` and `snet-apim`.
 
+ACR access is assigned only to the deployment admin group in this pass because
+APIM, Application Gateway, and future workload identities do not yet have a
+concrete container image consumer contract. ACR ABAC and repository-scoped
+permissions are deferred to a separate design decision.
+
 Starting WAF in Prevention mode increases security but may block legitimate traffic until WAF logs are reviewed and narrow exclusions are added.
 
 When `wafAllowedSourceCidrs` is configured, blocking sources outside the list preserves managed WAF rule evaluation for allowed sources. An allow custom rule would stop managed rule evaluation after a match.
@@ -239,6 +245,8 @@ Enabling APIM body logging improves demo observability but increases data sensit
 - [Azure Monitor diagnostic settings](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/diagnostic-settings)
 - [Azure DNS alias records](https://learn.microsoft.com/en-us/azure/dns/dns-alias)
 - [Key Vault soft delete overview](https://learn.microsoft.com/en-us/azure/key-vault/general/soft-delete-overview)
+- [Key Vault RBAC guide](https://learn.microsoft.com/en-us/azure/key-vault/general/rbac-guide)
 - [ACR authentication options](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication)
+- [ACR built-in roles](https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/containers)
 - [Deploy Bicep with GitHub Actions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deploy-github-actions)
 - [GitHub OIDC reference](https://docs.github.com/en/actions/reference/security/oidc)

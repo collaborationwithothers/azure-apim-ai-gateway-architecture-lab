@@ -26,8 +26,8 @@ param enableCustomDomain bool = false
 @description('Optional versionless Key Vault secret URI for the api.consultwithcloud.com PFX. Leave empty to use the lab Key Vault certificate secret.')
 param customDomainCertificateSecretUri string = ''
 
-@description('Optional service principal object ID for the certificate workflow OIDC identity. When supplied, it receives Key Vault Certificates Officer on the lab vault.')
-param certificateIssuerPrincipalId string = ''
+@description('Microsoft Entra group object ID for permanent deployment administrators that receive lab Key Vault administration and ACR push access.')
+param deploymentAdminGroupObjectId string = '4519227e-2736-47f7-b4da-c15be813677a'
 
 @description('Optional allowed source CIDR list for Application Gateway WAF policy. Empty means no custom source allow rule is deployed.')
 param wafAllowedSourceCidrs array = []
@@ -78,7 +78,7 @@ module hub './modules/hub.bicep' = {
     enableCustomDomain: enableCustomDomain
     publicHostname: publicHostname
     customDomainCertificateSecretUri: certificateSecretUri
-    certificateIssuerPrincipalId: certificateIssuerPrincipalId
+    deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
   }
 }

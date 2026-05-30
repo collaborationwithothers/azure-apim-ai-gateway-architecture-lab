@@ -1,15 +1,29 @@
 name: Validate Policies
 
 on:
-  pull_request:
   workflow_dispatch:
+    inputs:
+      expected_repository:
+        description: Repository allowed to run this workflow.
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      expected_actor:
+        description: GitHub actor allowed to run this workflow.
+        required: true
+        default: haripraghash
+
+permissions:
+  contents: read
 
 jobs:
   xml:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == inputs.expected_repository &&
+      github.actor == inputs.expected_actor &&
+      github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
     steps:
       - uses: actions/checkout@v4
-      - name: Install XML tools
-        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
       - name: Validate APIM policy XML is well formed
         run: xmllint --noout policies/examples/*.xml

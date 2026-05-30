@@ -2,10 +2,28 @@ name: Deploy Dev
 
 on:
   workflow_dispatch:
+    inputs:
+      expected_repository:
+        description: Repository allowed to run this workflow.
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      expected_actor:
+        description: GitHub actor allowed to run this workflow.
+        required: true
+        default: haripraghash
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == inputs.expected_repository &&
+      github.actor == inputs.expected_actor &&
+      github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, cwc-azure-deploy]
     environment: dev
     steps:
       - uses: actions/checkout@v4

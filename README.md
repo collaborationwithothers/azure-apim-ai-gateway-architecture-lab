@@ -80,7 +80,7 @@ failover behavior, cost controls, and ownership.
 | `diagrams/mermaid/`               | Mermaid source diagrams for the architecture flows.                                        |
 | `observability/app-insights-kql/` | KQL placeholders for token, latency, cache, throttling, and cost analysis.                 |
 | `infra/bicep/`                    | Subscription-scope Bicep for the hub-spoke APIM edge platform.                             |
-| `.github/workflows/`              | Manual guarded workflows for validation, deployment, and certificate issuance.              |
+| `.github/workflows/`              | Manual guarded workflows for validation, deployment, cleanup, and certificate issuance.     |
 
 ## How to use this repo
 
@@ -127,6 +127,18 @@ deployment is two-phase:
 3. Run the certificate workflow to import `cert-api-consultwithcloud-com`.
 4. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
 5. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
+
+Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in
+use. The workflow is manual and destructive. Preview mode lists the runner-side
+peerings and lab resource groups that would be deleted. Destroy mode requires
+the exact confirmation phrase, removes the runner-side peerings, and deletes
+only `rg-cwc-ai-gw-hub-eus2-001` and `rg-cwc-ai-gw-spoke-eus2-001`.
+
+The destroy workflow does not delete the runner VNet, runner resource group,
+parent DNS delegation, subscription deployment history, or unrelated resources.
+Key Vault purge protection may keep the deleted vault name reserved after
+cleanup. Parent DNS delegation for `api.consultwithcloud.com` may need manual
+cleanup outside this workflow.
 
 ## Demo roadmap
 

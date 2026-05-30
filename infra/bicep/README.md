@@ -56,6 +56,27 @@ Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` afte
 
 Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.consultwithcloud.com` resolves to Application Gateway. This binds `api.consultwithcloud.com` on APIM and creates the private APIM resolution record.
 
+## Destroy Flow
+
+Use `.github/workflows/infra-destroy.yml` to clean up the lab when it is not in
+use. The workflow is manual, destructive, and guarded to run only from `main` by
+the repository owner through the fixed `dev` GitHub Environment.
+
+Preview mode is non-mutating and lists the exact cleanup targets. Destroy mode
+requires the exact confirmation phrase before it removes the runner-side
+peerings `peer-to-cwc-ai-gw-hub` and `peer-to-cwc-ai-gw-spoke` from
+`vnet-dv-gh-actions-neu` in `rg-dv-gh-actions-neu`, then deletes only these lab
+resource groups:
+
+- `rg-cwc-ai-gw-hub-eus2-001`
+- `rg-cwc-ai-gw-spoke-eus2-001`
+
+The workflow does not delete the runner VNet, the runner resource group, the
+parent DNS delegation, subscription deployment history, or unrelated tagged
+resources. Key Vault purge protection may keep `kv-cwc-ai-gw-eus2-001`
+reserved after the hub resource group is deleted. Parent DNS delegation for
+`api.consultwithcloud.com` may need manual cleanup outside this workflow.
+
 ## Local Validation
 
 Run these checks before opening a pull request:

@@ -2,6 +2,25 @@
 
 `infra/bicep/main.bicep` is the subscription-scope entry point for the hub-spoke APIM edge platform. It creates the hub and spoke resource groups, deploys hub shared services, deploys spoke network foundations, and adds direct peerings to the existing self-hosted runner VNet.
 
+## Module Layout
+
+`infra/bicep/main.bicep` stays as the subscription-scope deployment target. It creates the hub and spoke resource groups and delegates resource-group deployments to modules.
+
+`infra/bicep/modules/hub.bicep` is a hub facade module. It preserves the outputs consumed by `main.bicep` while delegating hub resources to focused child modules:
+
+| Module | Responsibility |
+| --- | --- |
+| `hub-network.bicep` | Hub VNet, APIM NSG, and subnet ID outputs. |
+| `hub-observability.bicep` | Log Analytics workspace and workspace-based Application Insights. |
+| `hub-security.bicep` | Key Vault, ACR, Application Gateway managed identity, and runner IP network restrictions. |
+| `hub-firewall.bicep` | Firewall Policy, Azure Firewall public IP, and Azure Firewall. |
+| `hub-apim.bicep` | APIM Premium v2, APIM Azure Monitor diagnostic configuration, private DNS zone, hub VNet link, and private APIM A record. |
+| `hub-edge.bicep` | WAF policy, Application Gateway public IP, public DNS child zone, Application Gateway, and public DNS alias. |
+| `hub-rbac.bicep` | Key Vault role assignments for APIM, Application Gateway, and optional certificate issuer identity. |
+| `hub-diagnostics.bicep` | Azure Monitor diagnostic settings for hub resources. |
+
+Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, and private IPs through module parameters and outputs instead of relying on implicit resource ordering across files.
+
 ## Required Parameters
 
 | Parameter | Purpose |

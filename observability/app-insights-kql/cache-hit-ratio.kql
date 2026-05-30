@@ -1,0 +1,17 @@
+// Purpose
+// Cache hit ratio.
+//
+// Assumptions about log schema
+// Requests include a custom dimension or header-derived field named CacheStatus.
+// Field names are placeholders until APIM diagnostics and custom dimensions are finalized.
+//
+// Query
+requests
+| extend CacheStatus = tostring(customDimensions["CacheStatus"])
+| summarize Hits = countif(CacheStatus == "hit"), Misses = countif(CacheStatus == "miss") by bin(timestamp, 1h)
+| extend HitRatio = todouble(Hits) / todouble(Hits + Misses)
+//
+// TODOs
+// - Replace custom dimension names with the exact emitted telemetry fields.
+// - Confirm whether token metrics are stored in customMetrics, traces, or both.
+// - Add workspace, environment, and region filters before production use.

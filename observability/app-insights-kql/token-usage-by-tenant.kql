@@ -1,0 +1,18 @@
+// Purpose
+// Token usage by tenant.
+//
+// Assumptions about log schema
+// Application Insights custom metrics include LLM token metrics with a Tenant dimension.
+// Field names are placeholders until APIM diagnostics and custom dimensions are finalized.
+//
+// Query
+customMetrics
+| where name in ("Total Tokens", "Prompt Tokens", "Completion Tokens")
+| extend Tenant = tostring(customDimensions["Tenant"])
+| summarize Tokens = sum(value) by Tenant, name, bin(timestamp, 1h)
+| order by Tokens desc
+//
+// TODOs
+// - Replace custom dimension names with the exact emitted telemetry fields.
+// - Confirm whether token metrics are stored in customMetrics, traces, or both.
+// - Add workspace, environment, and region filters before production use.

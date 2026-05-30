@@ -1,0 +1,17 @@
+// Purpose
+// P95 latency by model.
+//
+// Assumptions about log schema
+// Request telemetry includes Model and Tenant custom dimensions.
+// Field names are placeholders until APIM diagnostics and custom dimensions are finalized.
+//
+// Query
+requests
+| extend Model = tostring(customDimensions["Model"])
+| summarize P95DurationMs = percentile(duration, 95) by Model, bin(timestamp, 15m)
+| order by P95DurationMs desc
+//
+// TODOs
+// - Replace custom dimension names with the exact emitted telemetry fields.
+// - Confirm whether token metrics are stored in customMetrics, traces, or both.
+// - Add workspace, environment, and region filters before production use.

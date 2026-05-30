@@ -1,0 +1,16 @@
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="backendUrl" value="https://aoai-primary-placeholder.openai.azure.com/openai" />
+    <set-backend-service base-url="@((string)context.Variables[&quot;backendUrl&quot;])" />
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+  </inbound>
+  <backend>
+    <retry condition="@(context.Response != null &amp;&amp; (context.Response.StatusCode == 429 || context.Response.StatusCode == 503))" count="1" interval="2" first-fast-retry="true">
+      <set-backend-service base-url="https://aoai-secondary-placeholder.openai.azure.com/openai" />
+      <forward-request />
+    </retry>
+  </backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

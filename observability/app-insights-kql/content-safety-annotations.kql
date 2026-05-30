@@ -1,0 +1,18 @@
+// Purpose
+// Content safety annotations.
+//
+// Assumptions about log schema
+// Gateway logs include ContentSafetyAction and ContentSafetyCategory dimensions.
+// Field names are placeholders until APIM diagnostics and custom dimensions are finalized.
+//
+// Query
+traces
+| extend Action = tostring(customDimensions["ContentSafetyAction"]), Category = tostring(customDimensions["ContentSafetyCategory"]), Tenant = tostring(customDimensions["Tenant"])
+| where isnotempty(Action)
+| summarize Events = count() by Action, Category, Tenant, bin(timestamp, 1h)
+| order by Events desc
+//
+// TODOs
+// - Replace custom dimension names with the exact emitted telemetry fields.
+// - Confirm whether token metrics are stored in customMetrics, traces, or both.
+// - Add workspace, environment, and region filters before production use.

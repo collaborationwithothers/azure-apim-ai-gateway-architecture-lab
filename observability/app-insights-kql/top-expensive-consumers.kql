@@ -1,0 +1,18 @@
+// Purpose
+// Top expensive consumers.
+//
+// Assumptions about log schema
+// Token metrics include Tenant, Product, and Model dimensions. Pricing is joined later from a reviewed cost table.
+// Field names are placeholders until APIM diagnostics and custom dimensions are finalized.
+//
+// Query
+customMetrics
+| where name == "Total Tokens"
+| extend Tenant = tostring(customDimensions["Tenant"]), Product = tostring(customDimensions["Product"]), Model = tostring(customDimensions["Model"])
+| summarize TotalTokens = sum(value) by Tenant, Product, Model
+| top 20 by TotalTokens desc
+//
+// TODOs
+// - Replace custom dimension names with the exact emitted telemetry fields.
+// - Confirm whether token metrics are stored in customMetrics, traces, or both.
+// - Add workspace, environment, and region filters before production use.

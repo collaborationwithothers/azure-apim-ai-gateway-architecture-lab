@@ -1,0 +1,11 @@
+<policies>
+  <inbound>
+    <base />
+    <!-- TODO: Replace backend id with the APIM backend for Azure AI Foundry or Azure OpenAI. -->
+    <set-backend-service backend-id="openai-backend-placeholder" />
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+  </inbound>
+  <backend><base /></backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

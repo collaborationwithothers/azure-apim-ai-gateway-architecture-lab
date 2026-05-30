@@ -1,0 +1,16 @@
+<policies>
+  <inbound>
+    <base />
+    <!-- TODO: Create an APIM backend for Azure AI Content Safety before enabling. -->
+    <llm-content-safety backend-id="content-safety-backend-placeholder">
+      <category name="Hate" threshold="4" />
+      <category name="Sexual" threshold="4" />
+      <category name="SelfHarm" threshold="4" />
+      <category name="Violence" threshold="4" />
+    </llm-content-safety>
+    <set-backend-service backend-id="openai-backend-placeholder" />
+  </inbound>
+  <backend><base /></backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

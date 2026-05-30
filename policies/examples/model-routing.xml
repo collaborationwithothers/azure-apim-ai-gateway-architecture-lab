@@ -1,0 +1,18 @@
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="requestClass" value="@(context.Request.Headers.GetValueOrDefault(&quot;x-request-class&quot;, &quot;standard&quot;))" />
+    <choose>
+      <when condition="@((string)context.Variables[&quot;requestClass&quot;] == &quot;reasoning&quot;)">
+        <set-backend-service backend-id="flagship-model-backend-placeholder" />
+      </when>
+      <otherwise>
+        <set-backend-service backend-id="mini-model-backend-placeholder" />
+      </otherwise>
+    </choose>
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+  </inbound>
+  <backend><base /></backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

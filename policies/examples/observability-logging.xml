@@ -1,0 +1,20 @@
+<policies>
+  <inbound>
+    <base />
+    <set-variable name="tenantId" value="@(context.Subscription.Id)" />
+    <set-header name="x-ai-gateway-correlation-id" exists-action="override">
+      <value>@(context.RequestId.ToString())</value>
+    </set-header>
+    <set-backend-service backend-id="openai-backend-placeholder" />
+  </inbound>
+  <backend><base /></backend>
+  <outbound>
+    <base />
+    <llm-emit-token-metric namespace="ai-gateway">
+      <dimension name="Tenant" value="@((string)context.Variables[&quot;tenantId&quot;])" />
+      <dimension name="API" value="@(context.Api.Name)" />
+      <dimension name="Operation" value="@(context.Operation.Id)" />
+    </llm-emit-token-metric>
+  </outbound>
+  <on-error><base /></on-error>
+</policies>

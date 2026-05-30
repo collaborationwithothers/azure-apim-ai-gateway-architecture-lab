@@ -1,0 +1,14 @@
+<policies>
+  <inbound>
+    <base />
+    <!-- TODO: Configure external cache and embeddings backend before enabling. -->
+    <llm-semantic-cache-lookup score-threshold="0.80" embeddings-backend-id="embeddings-backend-placeholder" embeddings-backend-auth="system-assigned">
+      <vary-by>@(context.Subscription.Id)</vary-by>
+    </llm-semantic-cache-lookup>
+    <rate-limit-by-key calls="120" renewal-period="60" counter-key="@(context.Subscription.Id)" />
+    <set-backend-service backend-id="openai-backend-placeholder" />
+  </inbound>
+  <backend><base /></backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

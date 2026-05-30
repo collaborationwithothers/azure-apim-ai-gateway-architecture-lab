@@ -1,0 +1,18 @@
+// Purpose
+// Throttling by backend.
+//
+// Assumptions about log schema
+// Dependency telemetry includes backend name and HTTP status code.
+// Field names are placeholders until APIM diagnostics and custom dimensions are finalized.
+//
+// Query
+dependencies
+| extend Backend = tostring(customDimensions["Backend"])
+| where resultCode in ("429", "503")
+| summarize Throttled = count() by Backend, resultCode, bin(timestamp, 15m)
+| order by Throttled desc
+//
+// TODOs
+// - Replace custom dimension names with the exact emitted telemetry fields.
+// - Confirm whether token metrics are stored in customMetrics, traces, or both.
+// - Add workspace, environment, and region filters before production use.

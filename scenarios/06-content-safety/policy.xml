@@ -1,0 +1,20 @@
+<policies>
+  <inbound>
+    <base />
+    <!-- TODO: Replace placeholder backend id after APIM backend creation. -->
+    <set-backend-service backend-id="openai-backend-placeholder" />
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+    <set-header name="x-lab-scenario" exists-action="override">
+      <value>Content Safety</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

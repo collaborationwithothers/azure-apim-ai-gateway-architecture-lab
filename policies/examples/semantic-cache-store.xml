@@ -1,0 +1,13 @@
+<policies>
+  <inbound>
+    <base />
+    <set-backend-service backend-id="openai-backend-placeholder" />
+  </inbound>
+  <backend><base /></backend>
+  <outbound>
+    <base />
+    <!-- TODO: Tune TTL by data volatility and tenant risk. -->
+    <llm-semantic-cache-store duration="3600" />
+  </outbound>
+  <on-error><base /></on-error>
+</policies>

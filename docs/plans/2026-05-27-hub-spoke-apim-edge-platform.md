@@ -79,6 +79,10 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
   Rationale: Delete lifecycle management is not needed for the first pass and stacks add operational risk.
   Date/Author: 2026-05-27 / Codex and user.
 
+- Decision: Add a fixed-target guarded manual destroy workflow for cost control.
+  Rationale: The lab needs a safe teardown path that deletes only the known lab resource groups and runner-side peerings without adopting deployment stacks.
+  Date/Author: 2026-05-30 / Codex and user.
+
 ## Outcomes & Retrospective
 
 The first implementation pass created the subscription-scope Bicep entry point, resource-group-scoped hub and spoke modules, runner peering module, guarded deployment workflow, guarded certificate workflow, and deployment runbook documentation. Local validation completed for Bicep build, workflow guardrails, Markdown linting, whitespace, workflow trigger search, and secret-pattern search.
@@ -222,7 +226,13 @@ If APIM custom domain binding fails because the certificate or public DNS is not
 
 If WAF Prevention blocks legitimate APIM traffic, inspect Application Gateway WAF logs in Log Analytics and add narrow exclusions only for the specific rule, request component, and hostname required. Do not disable WAF globally.
 
-If cleanup is needed, delete the hub and spoke resource groups manually. Key Vault purge protection means the vault name may remain reserved until the retention period expires.
+If cleanup is needed, use `.github/workflows/infra-destroy.yml`. Preview mode
+lists the runner-side peerings and lab resource groups, and destroy mode
+requires the exact confirmation phrase before it removes the runner-side
+peerings and deletes the hub and spoke resource groups. Key Vault purge
+protection means the deleted vault is not purged and the vault name may remain
+reserved until the retention period expires. Parent DNS delegation is outside
+the workflow and may need manual cleanup.
 
 ## Artifacts and Notes
 

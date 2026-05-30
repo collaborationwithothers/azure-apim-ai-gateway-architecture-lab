@@ -1,0 +1,127 @@
+name: Infra Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        description: Repository allowed to run this workflow.
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      mode:
+        description: Destroy workflow mode.
+        required: true
+        type: choice
+        default: preview
+        options:
+          - preview
+          - destroy
+      confirm_destroy:
+        description: Type the required phrase to destroy lab infrastructure.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-eus2-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
+  RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
+  HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
+  SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-eus2-001 rg-cwc-ai-gw-spoke-eus2-001
+
+jobs:
+  preview:
+    name: Preview Destroy Targets
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'preview'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - name: List destroy targets
+        run: |
+          set -euo pipefail
+          echo "This preview is non-mutating."
+          echo "Runner-side VNet peerings to delete:"
+          echo "- ${RUNNER_VNET_RESOURCE_GROUP_NAME}/${RUNNER_VNET_NAME}/${HUB_RUNNER_PEERING_NAME}"
+          echo "- ${RUNNER_VNET_RESOURCE_GROUP_NAME}/${RUNNER_VNET_NAME}/${SPOKE_RUNNER_PEERING_NAME}"
+          echo "Lab resource groups to delete:"
+          echo "- ${HUB_RESOURCE_GROUP_NAME}"
+          echo "- ${SPOKE_RESOURCE_GROUP_NAME}"
+          echo "This workflow does not delete the runner resource group, runner VNet, parent DNS zone, or subscription deployment history."
+
+  destroy:
+    name: Destroy Lab Infrastructure
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'destroy'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Azure login with OIDC
+        uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate destroy confirmation
+        env:
+          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRM_DESTROY" != "$CONFIRM_DESTROY_PHRASE" ]]; then
+            echo "confirm_destroy must exactly match: $CONFIRM_DESTROY_PHRASE" >&2
+            exit 1
+          fi
+
+      - name: Delete runner-side peerings
+        run: |
+          set -euo pipefail
+          for peering in "$HUB_RUNNER_PEERING_NAME" "$SPOKE_RUNNER_PEERING_NAME"; do
+            if az network vnet peering show \
+              --resource-group "$RUNNER_VNET_RESOURCE_GROUP_NAME" \
+              --vnet-name "$RUNNER_VNET_NAME" \
+              --name "$peering" >/dev/null 2>&1; then
+              az network vnet peering delete \
+                --resource-group "$RUNNER_VNET_RESOURCE_GROUP_NAME" \
+                --vnet-name "$RUNNER_VNET_NAME" \
+                --name "$peering"
+            else
+              echo "Peering already absent: ${RUNNER_VNET_RESOURCE_GROUP_NAME}/${RUNNER_VNET_NAME}/${peering}"
+            fi
+          done
+
+      - name: Delete lab resource groups
+        run: |
+          set -euo pipefail
+          for resource_group in "$SPOKE_RESOURCE_GROUP_NAME" "$HUB_RESOURCE_GROUP_NAME"; do
+            if [[ "$(az group exists --name "$resource_group")" == "true" ]]; then
+              az group delete --name "$resource_group" --yes
+            else
+              echo "Resource group already absent: $resource_group"
+            fi
+          done

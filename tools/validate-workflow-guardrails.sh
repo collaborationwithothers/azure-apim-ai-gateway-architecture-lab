@@ -31,9 +31,14 @@ has_literal() {
   grep -Fq -- "$literal" "$file"
 }
 
+has_destructive_destroy_command() {
+  local file="$1"
+  grep -Eq 'az (group delete|network vnet peering delete)' "$file"
+}
+
 is_guarded_deployment_workflow() {
   case "$1" in
-    .github/workflows/infra-deploy.yml|.github/workflows/certificate-issue.yml)
+    .github/workflows/infra-deploy.yml|.github/workflows/infra-destroy.yml|.github/workflows/certificate-issue.yml)
       return 0
       ;;
     *)
@@ -98,7 +103,7 @@ azure_changing_jobs_without_environment() {
       has_environment = 1
     }
 
-    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete))/ {
+    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete)/ {
       has_azure_change = 1
     }
 
@@ -271,9 +276,17 @@ while IFS= read -r workflow; do
     fail "$rel must not mutate the managed runner at runtime"
   fi
 
+  if ! is_guarded_deployment_workflow "$rel" && has_destructive_destroy_command "$workflow"; then
+    fail "$rel must not contain destructive Azure delete commands outside guarded deployment workflows"
+  fi
+
   if is_guarded_deployment_workflow "$rel"; then
     if ! grep -q "id-token: write" "$workflow"; then
       fail "$rel must set id-token: write permission"
+    fi
+
+    if ! has_literal "inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab'" "$workflow"; then
+      fail "$rel must guard inputs.expected_repository against the literal repository name"
     fi
 
     if has_top_level_oidc_permission "$workflow"; then
@@ -347,6 +360,41 @@ while IFS= read -r workflow; do
       "Microsoft.Web"; do
       if ! has_literal "$expected" "$workflow"; then
         fail "$rel is missing required deployment content: $expected"
+      fi
+    done
+  fi
+
+  if [[ "$rel" == ".github/workflows/infra-destroy.yml" ]]; then
+    for forbidden_input in \
+      "hub_resource_group_name:" \
+      "spoke_resource_group_name:" \
+      "runner_vnet_resource_group_name:" \
+      "runner_vnet_name:"; do
+      if has_literal "$forbidden_input" "$workflow"; then
+        fail "$rel must not accept caller-controlled destroy target input: $forbidden_input"
+      fi
+    done
+
+    for expected in \
+      "mode:" \
+      "type: choice" \
+      "preview" \
+      "destroy" \
+      "confirm_destroy:" \
+      "CONFIRM_DESTROY_PHRASE" \
+      "inputs.confirm_destroy" \
+      "confirm_destroy must exactly match" \
+      "rg-cwc-ai-gw-hub-eus2-001" \
+      "rg-cwc-ai-gw-spoke-eus2-001" \
+      "rg-dv-gh-actions-neu" \
+      "vnet-dv-gh-actions-neu" \
+      "peer-to-cwc-ai-gw-hub" \
+      "peer-to-cwc-ai-gw-spoke" \
+      "az network vnet peering show" \
+      "az network vnet peering delete" \
+      "az group delete"; do
+      if ! has_literal "$expected" "$workflow"; then
+        fail "$rel is missing required destroy content: $expected"
       fi
     done
   fi

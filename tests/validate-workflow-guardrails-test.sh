@@ -81,6 +81,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
     runs-on:
@@ -95,6 +96,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
     runs-on:
@@ -126,6 +128,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
     runs-on:
@@ -162,6 +165,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' &&
       github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
       github.actor == 'haripraghash' &&
       github.ref == 'refs/heads/main'
     runs-on:
@@ -182,6 +186,239 @@ jobs:
           az keyvault certificate import --name cert-api-consultwithcloud-com
 EOF
   "$validator" --root "$dir" >/tmp/workflow-guardrails-deploy-success.out
+}
+
+expect_success_for_guarded_destroy_workflow() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-destroy.yml" <<EOF
+name: Infra Destroy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options:
+          - preview
+          - destroy
+      confirm_destroy:
+        required: false
+permissions:
+  contents: read
+env:
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-eus2-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
+  RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
+  HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
+  SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-eus2-001 rg-cwc-ai-gw-spoke-eus2-001
+jobs:
+  preview:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'preview'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - run: |
+          echo preview
+          echo rg-cwc-ai-gw-hub-eus2-001
+          echo rg-cwc-ai-gw-spoke-eus2-001
+  destroy:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'destroy'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          if [[ "\${{ inputs.confirm_destroy }}" != "\$CONFIRM_DESTROY_PHRASE" ]]; then
+            echo "confirm_destroy must exactly match"
+            exit 1
+          fi
+          az network vnet peering show --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$SPOKE_RUNNER_PEERING_NAME"
+          az group exists --name "\$SPOKE_RESOURCE_GROUP_NAME"
+          az group delete --name "\$SPOKE_RESOURCE_GROUP_NAME" --yes
+          az group delete --name "\$HUB_RESOURCE_GROUP_NAME" --yes
+EOF
+  "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-success.out
+}
+
+expect_failure_for_destroy_target_inputs() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-destroy.yml" <<EOF
+name: Infra Destroy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options: [preview, destroy]
+      confirm_destroy:
+        required: false
+      hub_resource_group_name:
+        required: true
+permissions:
+  contents: read
+env:
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
+  RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
+  HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
+  SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-eus2-001 rg-cwc-ai-gw-spoke-eus2-001
+jobs:
+  destroy:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          if [[ "\${{ inputs.confirm_destroy }}" != "\$CONFIRM_DESTROY_PHRASE" ]]; then
+            echo "confirm_destroy must exactly match"
+            exit 1
+          fi
+          echo preview
+          az network vnet peering show --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az group delete --name "\${{ inputs.hub_resource_group_name }}" --yes
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-target-input.out 2>&1; then
+    echo "expected caller-controlled destroy target input to fail" >&2
+    return 1
+  fi
+  grep -q "must not accept caller-controlled destroy target input" \
+    /tmp/workflow-guardrails-destroy-target-input.out
+}
+
+expect_failure_for_destroy_missing_confirmation_check() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-destroy.yml" <<EOF
+name: Infra Destroy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options: [preview, destroy]
+permissions:
+  contents: read
+env:
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-eus2-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-eus2-001
+  RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
+  RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
+  HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
+  SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
+jobs:
+  destroy:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo preview
+          az network vnet peering show --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az group delete --name "\$SPOKE_RESOURCE_GROUP_NAME" --yes
+          az group delete --name "\$HUB_RESOURCE_GROUP_NAME" --yes
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-confirm.out 2>&1; then
+    echo "expected destroy workflow without confirmation check to fail" >&2
+    return 1
+  fi
+  grep -q "is missing required destroy content: confirm_destroy:" \
+    /tmp/workflow-guardrails-destroy-confirm.out
+}
+
+expect_failure_for_destroy_command_outside_guarded_workflow() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/manual-cleanup.yml" <<'EOF'
+name: Manual Cleanup
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      expected_actor:
+        required: true
+        default: haripraghash
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == inputs.expected_repository &&
+      github.actor == inputs.expected_actor &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - run: az group delete --name rg-cwc-ai-gw-hub-eus2-001 --yes
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-outside.out 2>&1; then
+    echo "expected destructive command outside guarded deployment workflow to fail" >&2
+    return 1
+  fi
+  grep -q "must not contain destructive Azure delete commands outside guarded deployment workflows" \
+    /tmp/workflow-guardrails-destroy-outside.out
 }
 
 expect_failure_for_deployment_missing_oidc() {
@@ -830,6 +1067,10 @@ EOF
 
 expect_success
 expect_success_for_guarded_deployment_workflows
+expect_success_for_guarded_destroy_workflow
+expect_failure_for_destroy_target_inputs
+expect_failure_for_destroy_missing_confirmation_check
+expect_failure_for_destroy_command_outside_guarded_workflow
 expect_failure_for_deployment_missing_oidc
 expect_failure_for_deployment_top_level_oidc
 expect_failure_for_deployment_missing_environment

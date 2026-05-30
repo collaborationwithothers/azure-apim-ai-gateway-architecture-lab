@@ -64,7 +64,8 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 - AKS cluster deployment.
 - Developer portal Entra ID automation.
 - Private endpoints for ACR and Key Vault.
-- Complete-mode or deployment-stack cleanup automation.
+- Complete-mode or deployment-stack cleanup automation. A fixed-target guarded
+  manual destroy workflow is allowed for lab cost control.
 - Production traffic load testing.
 - Azure AI backend deployment.
 

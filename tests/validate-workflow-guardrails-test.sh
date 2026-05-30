@@ -64,8 +64,6 @@ on:
           - validate
           - what-if
           - apply
-      runner_allowed_public_ip:
-        required: true
       enable_public_edge:
         type: choice
         options:
@@ -106,10 +104,16 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
+          if [[ ! "\$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
+            exit 1
+          fi
           az provider show --namespace Microsoft.Network
           az provider show --namespace Microsoft.ApiManagement
           az provider show --namespace Microsoft.ContainerRegistry
@@ -117,7 +121,7 @@ jobs:
           az provider show --namespace Microsoft.Insights
           az provider show --namespace Microsoft.OperationalInsights
           az provider show --namespace Microsoft.Web
-          az deployment sub what-if --location eastus2 --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp=203.0.113.10/32 enablePublicEdge=false enableCustomDomain=false
+          az deployment sub what-if --location eastus2 --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
   apply:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -131,12 +135,18 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
+          if [[ ! "\$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
+            exit 1
+          fi
           az provider register --namespace Microsoft.Network
-          az deployment sub create --location eastus2 --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp=203.0.113.10/32 enablePublicEdge=false enableCustomDomain=false
+          az deployment sub create --location eastus2 --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
 EOF
   cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
 name: Certificate Issue
@@ -377,6 +387,55 @@ EOF
   fi
   grep -q "must not use caller-controlled inputs.expected_repository" \
     /tmp/workflow-guardrails-repo.out
+}
+
+expect_failure_for_manual_runner_ip_input() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-deploy.yml" <<EOF
+name: Infra Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options: [validate, what-if, apply]
+      runner_allowed_public_ip:
+        required: true
+permissions:
+  contents: read
+jobs:
+  bad:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
+          az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP"
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-runner-input.out 2>&1; then
+    echo "expected manual runner_allowed_public_ip input to fail" >&2
+    return 1
+  fi
+  grep -q "must not require runner_allowed_public_ip as a manual workflow input" \
+    /tmp/workflow-guardrails-runner-input.out
 }
 
 expect_failure_for_unpinned_actions() {
@@ -776,6 +835,7 @@ expect_failure_for_deployment_top_level_oidc
 expect_failure_for_deployment_missing_environment
 expect_failure_for_input_environment
 expect_failure_for_caller_controlled_repository_guard
+expect_failure_for_manual_runner_ip_input
 expect_failure_for_unpinned_actions
 expect_failure_for_deployment_command_in_unapproved_job
 expect_failure_for_provider_register_in_what_if

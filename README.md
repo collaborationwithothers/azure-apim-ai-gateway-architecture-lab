@@ -109,10 +109,11 @@ group with the `[gh-linux]` label, use OIDC through a SHA-pinned `azure/login`, 
 the fixed `dev` GitHub Environment approval.
 
 Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`.
-The workflow accepts the required non-secret deployment inputs directly,
-including `runner_allowed_public_ip`, `enable_public_edge`,
-`enable_custom_domain`, optional `custom_domain_certificate_secret_uri`, and optional
-`certificate_issuer_principal_id`.
+The workflow reads the runner NAT CIDR from the `RUNNER_ALLOWED_PUBLIC_IP_CIDR`
+variable on the `dev` GitHub Environment. It accepts the remaining non-secret
+deployment inputs directly, including `enable_public_edge`,
+`enable_custom_domain`, optional `custom_domain_certificate_secret_uri`, and
+optional `certificate_issuer_principal_id`.
 Use `.github/workflows/certificate-issue.yml` only after phase 1 has created the
 Azure DNS child zone and Key Vault. The certificate workflow imports a PFX
 certificate into Key Vault for Application Gateway TLS termination. The

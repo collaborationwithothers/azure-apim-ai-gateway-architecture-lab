@@ -165,6 +165,8 @@ Run apply only after reviewing what-if:
 
 After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
 
+For the guarded workflow path, set `RUNNER_ALLOWED_PUBLIC_IP_CIDR` as a variable on the `dev` GitHub Environment. The workflow passes that value to the Bicep `runnerAllowedPublicIp` parameter so operators do not type the runner NAT CIDR for every run.
+
 ## Validation and Acceptance
 
 Documentation validation:

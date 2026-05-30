@@ -28,9 +28,6 @@ on:
         description: Optional repository-relative Bicep parameters file.
         required: false
         default: ""
-      runner_allowed_public_ip:
-        description: Public NAT IP for the self-hosted runner in CIDR form.
-        required: true
       enable_public_edge:
         description: Deploy Application Gateway and public DNS alias after the certificate exists.
         required: true
@@ -67,7 +64,6 @@ env:
   DEPLOYMENT_LOCATION: ${{ inputs.deployment_location }}
   TEMPLATE_FILE: ${{ inputs.template_file }}
   PARAMETERS_FILE: ${{ inputs.parameters_file }}
-  RUNNER_ALLOWED_PUBLIC_IP: ${{ inputs.runner_allowed_public_ip }}
   ENABLE_PUBLIC_EDGE: ${{ inputs.enable_public_edge }}
   ENABLE_CUSTOM_DOMAIN: ${{ inputs.enable_custom_domain }}
   CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI: ${{ inputs.custom_domain_certificate_secret_uri }}
@@ -116,6 +112,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      RUNNER_ALLOWED_PUBLIC_IP: ${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -124,6 +121,14 @@ jobs:
           set -euo pipefail
           if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
             echo "enable_custom_domain=true requires enable_public_edge=true." >&2
+            exit 1
+          fi
+          if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then
+            echo "Set RUNNER_ALLOWED_PUBLIC_IP_CIDR as a variable on the dev GitHub Environment." >&2
+            exit 1
+          fi
+          if [[ ! "$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
             exit 1
           fi
 
@@ -204,6 +209,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      RUNNER_ALLOWED_PUBLIC_IP: ${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -212,6 +218,14 @@ jobs:
           set -euo pipefail
           if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
             echo "enable_custom_domain=true requires enable_public_edge=true." >&2
+            exit 1
+          fi
+          if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then
+            echo "Set RUNNER_ALLOWED_PUBLIC_IP_CIDR as a variable on the dev GitHub Environment." >&2
+            exit 1
+          fi
+          if [[ ! "$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
             exit 1
           fi
 

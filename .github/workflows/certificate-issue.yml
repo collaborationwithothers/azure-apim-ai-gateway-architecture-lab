@@ -1,0 +1,203 @@
+name: Certificate Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        description: Repository allowed to run this workflow.
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      acme_server:
+        description: ACME endpoint. Use staging until DNS and Key Vault access are verified.
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+      contact_email:
+        description: ACME registration email.
+        required: true
+      dns_zone_resource_group:
+        description: Resource group that owns the Azure DNS zone.
+        required: true
+        default: rg-cwc-ai-gw-hub-eus2-001
+      dns_zone_name:
+        description: Azure DNS zone for the API hostname.
+        required: true
+        default: api.consultwithcloud.com
+      key_vault_name:
+        description: Key Vault that receives the issued certificate.
+        required: true
+        default: kv-cwc-ai-gw-eus2-001
+      dns_propagation_seconds:
+        description: Seconds to wait after creating the DNS-01 TXT record.
+        required: true
+        default: "90"
+
+permissions:
+  contents: read
+
+env:
+  CERTIFICATE_DOMAIN: api.consultwithcloud.com
+  DNS_RECORD_SET_NAME: _acme-challenge
+  KEY_VAULT_CERTIFICATE_NAME: cert-api-consultwithcloud-com
+  DNS_ZONE_RESOURCE_GROUP: ${{ inputs.dns_zone_resource_group }}
+  DNS_ZONE_NAME: ${{ inputs.dns_zone_name }}
+  KEY_VAULT_NAME: ${{ inputs.key_vault_name }}
+  DNS_PROPAGATION_SECONDS: ${{ inputs.dns_propagation_seconds }}
+
+jobs:
+  issue:
+    name: Issue Certificate
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Azure login with OIDC
+        uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check required tools
+        run: |
+          set -euo pipefail
+          command -v certbot
+          command -v openssl
+          command -v az
+
+      - name: Issue certificate with ACME DNS-01
+        env:
+          CONTACT_EMAIL: ${{ inputs.contact_email }}
+          ACME_SERVER: ${{ inputs.acme_server }}
+        run: |
+          set -euo pipefail
+          if [[ "$DNS_ZONE_NAME" != "$CERTIFICATE_DOMAIN" ]]; then
+            echo "This workflow is scoped only to the api.consultwithcloud.com Azure DNS zone." >&2
+            exit 1
+          fi
+
+          certbot_root="$RUNNER_TEMP/certbot"
+          challenge_values="$RUNNER_TEMP/acme-challenge-values.txt"
+          auth_hook="$RUNNER_TEMP/acme-auth-hook.sh"
+          cleanup_hook="$RUNNER_TEMP/acme-cleanup-hook.sh"
+          mkdir -p "$certbot_root"
+          : > "$challenge_values"
+
+          cat > "$auth_hook" <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [[ "$CERTBOT_DOMAIN" != "$CERTIFICATE_DOMAIN" ]]; then
+            echo "Unexpected ACME domain: $CERTBOT_DOMAIN" >&2
+            exit 1
+          fi
+          az network dns record-set txt show \
+            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+            --zone-name "$DNS_ZONE_NAME" \
+            --record-set-name "$DNS_RECORD_SET_NAME" >/dev/null 2>&1 || \
+          az network dns record-set txt create \
+            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+            --zone-name "$DNS_ZONE_NAME" \
+            --record-set-name "$DNS_RECORD_SET_NAME" \
+            --ttl 60
+          az network dns record-set txt add-record \
+            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+            --zone-name "$DNS_ZONE_NAME" \
+            --record-set-name "$DNS_RECORD_SET_NAME" \
+            --value "$CERTBOT_VALIDATION"
+          printf '%s\t%s\n' "$DNS_RECORD_SET_NAME" "$CERTBOT_VALIDATION" >> "$RUNNER_TEMP/acme-challenge-values.txt"
+          sleep "$DNS_PROPAGATION_SECONDS"
+          SCRIPT
+
+          cat > "$cleanup_hook" <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          az network dns record-set txt remove-record \
+            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+            --zone-name "$DNS_ZONE_NAME" \
+            --record-set-name "$DNS_RECORD_SET_NAME" \
+            --value "$CERTBOT_VALIDATION" || true
+          SCRIPT
+
+          chmod 700 "$auth_hook" "$cleanup_hook"
+
+          server_args=()
+          if [[ "$ACME_SERVER" == "staging" ]]; then
+            server_args+=(--test-cert)
+          fi
+
+          certbot certonly \
+            --manual \
+            --preferred-challenges dns \
+            --manual-auth-hook "$auth_hook" \
+            --manual-cleanup-hook "$cleanup_hook" \
+            --manual-public-ip-logging-ok \
+            --non-interactive \
+            --agree-tos \
+            --email "$CONTACT_EMAIL" \
+            --config-dir "$certbot_root/config" \
+            --work-dir "$certbot_root/work" \
+            --logs-dir "$certbot_root/logs" \
+            -d "$CERTIFICATE_DOMAIN" \
+            "${server_args[@]}"
+
+          live_dir="$certbot_root/config/live/$CERTIFICATE_DOMAIN"
+          pfx_file="$RUNNER_TEMP/$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          pfx_password="$(openssl rand -base64 32)"
+          umask 077
+          openssl pkcs12 -export \
+            -out "$pfx_file" \
+            -inkey "$live_dir/privkey.pem" \
+            -in "$live_dir/cert.pem" \
+            -certfile "$live_dir/chain.pem" \
+            -passout "pass:$pfx_password"
+
+          az keyvault certificate import \
+            --vault-name "$KEY_VAULT_NAME" \
+            --name "$KEY_VAULT_CERTIFICATE_NAME" \
+            --file "$pfx_file" \
+            --password "$pfx_password"
+
+      - name: Remove temporary ACME challenge records
+        if: always()
+        run: |
+          set -euo pipefail
+          challenge_values="$RUNNER_TEMP/acme-challenge-values.txt"
+          if [[ -f "$challenge_values" ]]; then
+            while IFS="$(printf '\t')" read -r record_set value; do
+              [[ -n "${record_set:-}" && -n "${value:-}" ]] || continue
+              az network dns record-set txt remove-record \
+                --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+                --zone-name "$DNS_ZONE_NAME" \
+                --record-set-name "$record_set" \
+                --value "$value" || true
+            done < "$challenge_values"
+          fi
+
+      - name: Remove temporary certificate material
+        if: always()
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/certbot"
+          rm -f "$RUNNER_TEMP/$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          rm -f "$RUNNER_TEMP/acme-auth-hook.sh"
+          rm -f "$RUNNER_TEMP/acme-cleanup-hook.sh"
+          rm -f "$RUNNER_TEMP/acme-challenge-values.txt"

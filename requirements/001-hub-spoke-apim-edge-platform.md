@@ -12,7 +12,7 @@ design-log: "001"
 
 ### Problem statement
 
-The lab needs a deployable Azure hub-spoke foundation for an API Management based AI gateway. The current repository has documentation and a safe Bicep skeleton, but it does not deploy the hub network, spoke network, firewall, APIM, edge routing, DNS, certificate automation, diagnostics, or GitHub Actions deployment path.
+The lab needs a deployable Azure hub-spoke foundation for an API Management based AI gateway. The repository now contains the first implementation pass for the hub network, spoke network, firewall, APIM, edge routing, DNS, certificate automation, diagnostics, and guarded GitHub Actions deployment path.
 
 ### Goals
 
@@ -30,7 +30,7 @@ Build a subscription-scope Bicep deployment that creates the hub and spoke resou
 
 ### Executive summary
 
-The target platform uses Application Gateway WAF v2 as the public entry point for `api.consultwithcloud.com`, forwards HTTPS traffic privately to APIM Premium v2 in the hub VNet, and keeps APIM management through Azure portal, ARM, and GitHub Actions. Azure Firewall Standard controls spoke workload and future AKS outbound traffic. Log Analytics receives diagnostics from deployed platform resources. GitHub Actions uses manual dispatch, OIDC, self-hosted runner labels, environment approval, and strict job guards.
+The target platform uses Application Gateway WAF v2 as the public entry point for `api.consultwithcloud.com`, forwards HTTPS traffic privately to APIM Premium v2 in the hub VNet, and keeps APIM management through Azure portal, ARM, and GitHub Actions. Azure Firewall Standard controls spoke workload and future AKS outbound traffic. Log Analytics receives diagnostics from deployed platform resources. GitHub Actions uses manual dispatch, OIDC, runner group `consultwithcloud-azure` with label `[gh-linux]`, environment approval, and strict job guards.
 
 ## Stakeholders
 
@@ -72,11 +72,11 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 
 | Path | Required change |
 |---|---|
-| `infra/bicep/main.bicep` | Convert to subscription scope and orchestrate modules. |
-| `infra/bicep/modules/` | Add hub, spoke, diagnostics, DNS, APIM, App Gateway, and workflow-support modules as needed. |
-| `.github/workflows/` | Replace placeholder deploy flow with guarded manual workflows. |
-| `README.md` | Add deployment, safety, APIM body logging, and public repo workflow warnings. |
-| `infra/bicep/README.md` | Replace skeleton wording with deployment and parameter instructions. |
+| `infra/bicep/main.bicep` | Subscription-scope orchestration entry point. |
+| `infra/bicep/modules/` | Hub, spoke, and runner peering modules. |
+| `.github/workflows/` | Guarded manual deployment and certificate workflows. |
+| `README.md` | Deployment, safety, APIM body logging, and public repo workflow warnings. |
+| `infra/bicep/README.md` | Deployment and parameter instructions. |
 | `requirements/index.md` | Add REQ-001. |
 | `design-log/index.md` | Add Design Log #001. |
 | `docs/plans/` | Add the executable implementation plan. |
@@ -198,7 +198,7 @@ Acceptance criteria:
 
 - SKU is `PremiumV2` with `1` initial unit.
 - APIM subnet is `snet-apim`.
-- APIM gateway custom domain is bound to `api.consultwithcloud.com` after the certificate exists.
+- APIM gateway custom domain is bound to `api.consultwithcloud.com` after the certificate exists and public DNS resolution to Application Gateway is visible.
 - Publisher name is `Consult With Cloud`.
 - Publisher email is `hari.s@consultwithcloud.com`.
 - APIM has system-assigned managed identity.
@@ -272,6 +272,7 @@ Acceptance criteria:
 - Workflow is `workflow_dispatch` only.
 - Workflow uses OIDC, not a client secret.
 - Workflow imports certificate as `cert-api-consultwithcloud-com`.
+- Workflow imports a PFX certificate for Application Gateway TLS termination.
 - Workflow has the same repository, actor, branch, runner, and environment guards as deployment.
 
 ### FR-14: GitHub Actions guardrails
@@ -284,16 +285,16 @@ Acceptance criteria:
 
 - No deployment workflow has `pull_request` or `pull_request_target`.
 - Deployment workflows use `workflow_dispatch` only.
-- Jobs run on `[self-hosted, linux, x64, cwc-azure-deploy]`.
+- Jobs run on runner group `consultwithcloud-azure` with label `[gh-linux]`.
 - Jobs have guards for:
   - expected actor `haripraghash`
-  - expected repository parameter
+  - literal repository `collaborationwithothers/azure-apim-ai-gateway-architecture-lab`
   - `refs/heads/main`
 - Workflow permissions are:
   - `contents: read`
-  - `id-token: write`
-- GitHub Environment approval is required before Azure-changing jobs.
-- Expected repository is parameterized to allow a future move from personal repo to organization repo.
+  - `id-token: write` only on Azure jobs that need OIDC
+- The fixed `dev` GitHub Environment approval is required before Azure-changing jobs.
+- Deployment workflows pin third-party actions to full commit SHAs.
 
 ### FR-15: Diagnostics
 
@@ -312,7 +313,7 @@ Acceptance criteria:
 
 ### FR-16: Azure resource providers
 
-Description: Deployment workflow preflight must register required Azure resource providers.
+Description: Deployment workflow apply must register required Azure resource providers, while what-if must only check registration state.
 
 Rationale: APIM Premium v2 VNet injection and subnet delegation require registered providers.
 
@@ -351,8 +352,11 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 ## Data, Security, and Compliance
 
-- APIM body logging is intentionally enabled for the lab and must be clearly warned about.
+- APIM body logging is intentionally enabled for the lab and must be clearly warned about because it can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data.
 - Do not commit secrets, PFX files, ACME account keys, tenant credentials, or generated deployment outputs.
+- The certificate workflow identity must have Key Vault certificate import and read permission. The Bicep deployment can assign Key Vault Certificates Officer and Key Vault Secrets User when `certificateIssuerPrincipalId` is supplied.
+- The APIM Premium v2 injected subnet must include the service dependency NSG rules required for outbound Storage and Azure Key Vault access.
+- The Application Gateway and APIM subnets must have Key Vault service endpoint access to the vault so managed identities can retrieve TLS certificates through restricted vault networking.
 - Key Vault must use soft delete and purge protection.
 - ACR admin user must remain disabled.
 - Public repo workflows must not run from pull requests or forks.
@@ -376,7 +380,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 ## Open Questions
 
 - What is the current public IP address associated with NAT Gateway `natgw-gh-actions-neu`? The deployment should require `runnerAllowedPublicIp` until this is supplied.
-- What will the expected repository name be after moving to a GitHub organization? The workflow should default to the current name but keep it parameterized.
+- What will the expected repository name be after moving to a GitHub organization? The workflow currently uses a literal repository guard and must be deliberately changed during the move.
 - Which exact AVM module versions will be selected during implementation?
 
 ## Assumptions

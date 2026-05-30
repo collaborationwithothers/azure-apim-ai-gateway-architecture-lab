@@ -19,8 +19,9 @@ identity design.
 - Key Vault stores the edge certificate.
 - ACR admin user remains disabled.
 - Diagnostics are sent to Log Analytics.
-- Deployment workflows are expected to use manual dispatch, OIDC, runner labels,
-  branch guards, actor guards, and environment approvals.
+- Deployment workflows are expected to use manual dispatch, OIDC, runner group
+  `consultwithcloud-azure` with label `[gh-linux]`, branch guards, actor
+  guards, and environment approvals.
 
 ## Risks
 

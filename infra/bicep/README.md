@@ -1,16 +1,95 @@
-# Bicep Skeleton
+# Hub-Spoke Bicep Deployment
 
-This folder contains a safe first-pass Bicep skeleton. It is intended to compile locally and document resource boundaries. It does not deploy APIM, Azure AI services, monitoring, cache, Key Vault, private endpoints, or private DNS yet.
+`infra/bicep/main.bicep` is the subscription-scope entry point for the hub-spoke APIM edge platform. It creates the hub and spoke resource groups, deploys hub shared services, deploys spoke network foundations, and adds direct peerings to the existing self-hosted runner VNet.
 
-## Validate
+## Required Parameters
+
+| Parameter | Purpose |
+| --- | --- |
+| `location` | Azure region for new resources. Defaults to `eastus2`. |
+| `environmentName` | Tag value for the lab environment. Defaults to `dev`. |
+| `expectedRepository` | Repository value carried through deployment metadata. Defaults to this repository. |
+| `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
+| `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
+| `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
+| `customDomainCertificateSecretUri` | Versionless Key Vault secret URI for `cert-api-consultwithcloud-com`. |
+| `certificateIssuerPrincipalId` | Optional service principal object ID for the certificate workflow OIDC identity. When set, it receives Key Vault Certificates Officer and Key Vault Secrets User on the lab vault. |
+| `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
+| `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
+| `runnerVnetName` | Existing runner VNet. Defaults to `vnet-dv-gh-actions-neu`. |
+
+## Expected Resource Groups
+
+The template creates these resource groups in `eastus2`:
+
+- `rg-cwc-ai-gw-hub-eus2-001`
+- `rg-cwc-ai-gw-spoke-eus2-001`
+
+The existing runner VNet is referenced, not recreated, in `rg-dv-gh-actions-neu`.
+
+## Deployment Flow
+
+Run phase 1 with `enablePublicEdge = false` and `enableCustomDomain = false`. This creates the hub and spoke foundations, DNS child zone, Key Vault, APIM, Log Analytics, ACR, Firewall, and peerings without binding the certificate-dependent edge resources.
+
+After phase 1 completes, delegate the parent DNS zone `consultwithcloud.com` so `api.consultwithcloud.com` uses the Azure DNS name servers created in the child zone. Then run `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT records and import the Let's Encrypt certificate into Key Vault as `cert-api-consultwithcloud-com`. The certificate workflow imports a PFX file because Application Gateway TLS termination requires PFX certificates in Key Vault.
+
+Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
+
+Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.consultwithcloud.com` resolves to Application Gateway. This binds `api.consultwithcloud.com` on APIM and creates the private APIM resolution record.
+
+## Local Validation
+
+Run these checks before opening a pull request:
+
+    git diff --check
+    az bicep build --file infra/bicep/main.bicep
+    rg -n "pull_request|pull_request_target" .github/workflows
+    rg -n "client-secret|password|PFX|BEGIN PRIVATE KEY|PLACEHOLDER_SECRET" .
+
+Run the workflow guardrail tests after editing workflows:
+
+    bash tools/validate-workflow-guardrails.sh
+    bash tests/validate-workflow-guardrails-test.sh
+
+## Manual Azure Commands
+
+Validate from an authenticated shell:
 
     az bicep build --file infra/bicep/main.bicep
 
-## TODOs
+Run what-if:
 
-- Add APIM module.
-- Add Azure AI Foundry or Azure OpenAI module.
-- Add Application Insights and Log Analytics module.
-- Add Redis-compatible cache module for semantic caching.
-- Add Key Vault module for named values and secrets.
-- Add private endpoints and private DNS modules for private networking.
+    az deployment sub what-if \
+      --name apim-ai-gateway-lab \
+      --location eastus2 \
+      --template-file infra/bicep/main.bicep \
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
+
+Run apply:
+
+    az deployment sub create \
+      --name apim-ai-gateway-lab \
+      --location eastus2 \
+      --template-file infra/bicep/main.bicep \
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
+
+For phase 2, set `enablePublicEdge=true` after `cert-api-consultwithcloud-com` exists in Key Vault. For phase 3, keep `enablePublicEdge=true` and set `enableCustomDomain=true` after public DNS resolution is visible. If the certificate workflow identity should receive Key Vault import and read rights from the deployment, pass `certificateIssuerPrincipalId=<service-principal-object-id>` during phase 1. APIM receives Key Vault Secrets User and Key Vault Certificate User, and Application Gateway receives Key Vault Secrets User.
+
+Use the guarded workflow for normal operation. Manual commands are for local operator preflight only.
+
+## AVM Decision
+
+This pass uses local raw Bicep resources instead of Azure Verified Modules. The deployment needs tight cross-resource wiring for APIM private gateway, Application Gateway, DNS alias records, private DNS, diagnostic settings, route tables, and VNet peerings. Local Bicep keeps the first deployable slice inspectable and avoids wrapping many AVM modules before the lab has stable parameters. Revisit AVM composition after the first successful what-if and apply.
+
+## Open Operational Inputs
+
+- Runner NAT public IP for `runnerAllowedPublicIp`.
+- Service principal object ID for the certificate workflow OIDC identity, if the deployment should assign Key Vault Certificates Officer and Key Vault Secrets User.
+- `dev` GitHub Environment approval setup for Azure-changing jobs.
+- Azure federated identity credentials for GitHub OIDC.
+- Parent DNS zone delegation for `api.consultwithcloud.com`.
+- Confirmation that APIM Premium v2 capacity is available in `eastus2` at deployment time.
+
+## Data Warning
+
+APIM body logging is intentionally enabled for this lab. It can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data into Azure Monitor and Log Analytics. Do not send real sensitive traffic through the lab unless logging and retention have been reviewed.

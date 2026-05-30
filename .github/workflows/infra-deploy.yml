@@ -1,0 +1,267 @@
+name: Infra Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        description: Repository allowed to run this workflow.
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      mode:
+        description: Deployment mode.
+        required: true
+        type: choice
+        default: validate
+        options:
+          - validate
+          - what-if
+          - apply
+      deployment_location:
+        description: Azure deployment metadata location.
+        required: true
+        default: eastus2
+      template_file:
+        description: Repository-relative Bicep template path.
+        required: true
+        default: infra/bicep/main.bicep
+      parameters_file:
+        description: Optional repository-relative Bicep parameters file.
+        required: false
+        default: ""
+      runner_allowed_public_ip:
+        description: Public NAT IP for the self-hosted runner in CIDR form.
+        required: true
+      enable_public_edge:
+        description: Deploy Application Gateway and public DNS alias after the certificate exists.
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+      enable_custom_domain:
+        description: Bind the APIM custom domain after public DNS resolves to the edge.
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+      custom_domain_certificate_secret_uri:
+        description: Optional versionless Key Vault secret URI for the PFX certificate.
+        required: false
+        default: ""
+      certificate_issuer_principal_id:
+        description: Optional service principal object ID that imports certificates into Key Vault.
+        required: false
+        default: ""
+      deployment_name:
+        description: Azure subscription deployment name.
+        required: true
+        default: apim-ai-gateway-lab
+
+permissions:
+  contents: read
+
+env:
+  DEPLOYMENT_LOCATION: ${{ inputs.deployment_location }}
+  TEMPLATE_FILE: ${{ inputs.template_file }}
+  PARAMETERS_FILE: ${{ inputs.parameters_file }}
+  RUNNER_ALLOWED_PUBLIC_IP: ${{ inputs.runner_allowed_public_ip }}
+  ENABLE_PUBLIC_EDGE: ${{ inputs.enable_public_edge }}
+  ENABLE_CUSTOM_DOMAIN: ${{ inputs.enable_custom_domain }}
+  CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI: ${{ inputs.custom_domain_certificate_secret_uri }}
+  CERTIFICATE_ISSUER_PRINCIPAL_ID: ${{ inputs.certificate_issuer_principal_id }}
+  DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
+
+jobs:
+  validate:
+    name: Validate Bicep
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'validate'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Restore Bicep modules
+        run: az bicep restore --file "$TEMPLATE_FILE"
+
+      - name: Build Bicep
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+  what-if:
+    name: Azure What-if
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'what-if'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Validate deployment stage inputs
+        run: |
+          set -euo pipefail
+          if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
+            echo "enable_custom_domain=true requires enable_public_edge=true." >&2
+            exit 1
+          fi
+
+      - name: Azure login with OIDC
+        uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check required Azure providers
+        run: |
+          set -euo pipefail
+          missing=0
+          for namespace in \
+            Microsoft.Network \
+            Microsoft.ApiManagement \
+            Microsoft.ContainerRegistry \
+            Microsoft.KeyVault \
+            Microsoft.Insights \
+            Microsoft.OperationalInsights \
+            Microsoft.Web
+          do
+            state="$(az provider show --namespace "$namespace" --query registrationState -o tsv)"
+            if [[ "$state" != "Registered" ]]; then
+              echo "$namespace is $state. Run apply once to register providers before what-if." >&2
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Restore Bicep modules
+        run: az bicep restore --file "$TEMPLATE_FILE"
+
+      - name: Build Bicep
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: Run subscription what-if
+        run: |
+          set -euo pipefail
+          args=(
+            --name "$DEPLOYMENT_NAME"
+            --location "$DEPLOYMENT_LOCATION"
+            --template-file "$TEMPLATE_FILE"
+            --parameters
+            runnerAllowedPublicIp="$RUNNER_ALLOWED_PUBLIC_IP"
+            enablePublicEdge="$ENABLE_PUBLIC_EDGE"
+            enableCustomDomain="$ENABLE_CUSTOM_DOMAIN"
+          )
+          if [[ -n "$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" ]]; then
+            args+=(customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
+          fi
+          if [[ -n "$CERTIFICATE_ISSUER_PRINCIPAL_ID" ]]; then
+            args+=(certificateIssuerPrincipalId="$CERTIFICATE_ISSUER_PRINCIPAL_ID")
+          fi
+          if [[ -n "$PARAMETERS_FILE" ]]; then
+            args+=(--parameters "@$PARAMETERS_FILE")
+          fi
+          az deployment sub what-if "${args[@]}"
+
+  apply:
+    name: Azure Apply
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'apply'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Validate deployment stage inputs
+        run: |
+          set -euo pipefail
+          if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
+            echo "enable_custom_domain=true requires enable_public_edge=true." >&2
+            exit 1
+          fi
+
+      - name: Azure login with OIDC
+        uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Register required Azure providers
+        run: |
+          set -euo pipefail
+          for namespace in \
+            Microsoft.Network \
+            Microsoft.ApiManagement \
+            Microsoft.ContainerRegistry \
+            Microsoft.KeyVault \
+            Microsoft.Insights \
+            Microsoft.OperationalInsights \
+            Microsoft.Web
+          do
+            az provider register --namespace "$namespace" --wait
+          done
+
+      - name: Restore Bicep modules
+        run: az bicep restore --file "$TEMPLATE_FILE"
+
+      - name: Build Bicep
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: Run subscription deployment
+        run: |
+          set -euo pipefail
+          args=(
+            --name "$DEPLOYMENT_NAME"
+            --location "$DEPLOYMENT_LOCATION"
+            --template-file "$TEMPLATE_FILE"
+            --parameters
+            runnerAllowedPublicIp="$RUNNER_ALLOWED_PUBLIC_IP"
+            enablePublicEdge="$ENABLE_PUBLIC_EDGE"
+            enableCustomDomain="$ENABLE_CUSTOM_DOMAIN"
+          )
+          if [[ -n "$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" ]]; then
+            args+=(customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
+          fi
+          if [[ -n "$CERTIFICATE_ISSUER_PRINCIPAL_ID" ]]; then
+            args+=(certificateIssuerPrincipalId="$CERTIFICATE_ISSUER_PRINCIPAL_ID")
+          fi
+          if [[ -n "$PARAMETERS_FILE" ]]; then
+            args+=(--parameters "@$PARAMETERS_FILE")
+          fi
+          az deployment sub create "${args[@]}"

@@ -45,7 +45,8 @@ and which spoke choices remain open until a workload is designed.
 
 ## 4. Constraints
 
-- All new resources target `eastus2`.
+- All new resources target `northcentralus`, which is currently listed for both
+  APIM Premium v2 and the Azure OpenAI Responses API.
 - APIM uses Premium v2 with VNet injection.
 - Application Gateway WAF v2 is the public HTTPS edge.
 - Azure Firewall Standard controls spoke egress, not Application Gateway or APIM
@@ -83,7 +84,7 @@ that needs direct peering to both hub and spoke for deployment and validation.
 
 ### Chosen approach
 
-Use a customer-managed hub-spoke topology with a central hub in `eastus2`, one
+Use a customer-managed hub-spoke topology with a central hub in `northcentralus`, one
 workload spoke, and direct peering to the existing runner VNet.
 
 ### Alternatives considered

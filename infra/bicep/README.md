@@ -25,7 +25,7 @@ Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, a
 
 | Parameter | Purpose |
 | --- | --- |
-| `location` | Azure region for new resources. Defaults to `eastus2`. |
+| `location` | Azure region for new resources. Defaults to `northcentralus`. |
 | `environmentName` | Tag value for the lab environment. Defaults to `dev`. |
 | `expectedRepository` | Repository value carried through deployment metadata. Defaults to this repository. |
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
@@ -39,10 +39,10 @@ Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, a
 
 ## Expected Resource Groups
 
-The template creates these resource groups in `eastus2`:
+The template creates these resource groups in `northcentralus`:
 
-- `rg-cwc-ai-gw-hub-eus2-001`
-- `rg-cwc-ai-gw-spoke-eus2-001`
+- `rg-cwc-ai-gw-hub-ncus-001`
+- `rg-cwc-ai-gw-spoke-ncus-001`
 
 The existing runner VNet is referenced, not recreated, in `rg-dv-gh-actions-neu`.
 
@@ -68,12 +68,12 @@ peerings `peer-to-cwc-ai-gw-hub` and `peer-to-cwc-ai-gw-spoke` from
 `vnet-dv-gh-actions-neu` in `rg-dv-gh-actions-neu`, then deletes only these lab
 resource groups:
 
-- `rg-cwc-ai-gw-hub-eus2-001`
-- `rg-cwc-ai-gw-spoke-eus2-001`
+- `rg-cwc-ai-gw-hub-ncus-001`
+- `rg-cwc-ai-gw-spoke-ncus-001`
 
 The workflow does not delete the runner VNet, the runner resource group, the
 parent DNS delegation, subscription deployment history, or unrelated tagged
-resources. Key Vault purge protection may keep `kv-cwc-ai-gw-eus2-001`
+resources. Key Vault purge protection may keep `kv-cwc-ai-gw-ncus-001`
 reserved after the hub resource group is deleted. Parent DNS delegation for
 `api.consultwithcloud.com` may need manual cleanup outside this workflow.
 
@@ -108,7 +108,7 @@ Run what-if:
 
     az deployment sub what-if \
       --name apim-ai-gateway-lab \
-      --location eastus2 \
+      --location northcentralus \
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
@@ -116,7 +116,7 @@ Run apply:
 
     az deployment sub create \
       --name apim-ai-gateway-lab \
-      --location eastus2 \
+      --location northcentralus \
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
@@ -156,7 +156,7 @@ This pass uses local raw Bicep resources instead of Azure Verified Modules. The 
 - `dev` GitHub Environment approval setup for Azure-changing jobs.
 - Azure federated identity credentials for GitHub OIDC.
 - Parent DNS zone delegation for `api.consultwithcloud.com`.
-- Confirmation that APIM Premium v2 capacity is available in `eastus2` at deployment time.
+- Confirmation that APIM Premium v2 capacity and required Azure OpenAI model quota are available in `northcentralus` at deployment time.
 
 ## Data Warning
 

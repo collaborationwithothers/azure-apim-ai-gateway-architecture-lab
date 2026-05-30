@@ -21,7 +21,7 @@ on:
       dns_zone_resource_group:
         description: Resource group that owns the Azure DNS zone.
         required: true
-        default: rg-cwc-ai-gw-hub-eus2-001
+        default: rg-cwc-ai-gw-hub-ncus-001
       dns_zone_name:
         description: Azure DNS zone for the API hostname.
         required: true
@@ -29,7 +29,7 @@ on:
       key_vault_name:
         description: Key Vault that receives the issued certificate.
         required: true
-        default: kv-cwc-ai-gw-eus2-001
+        default: kv-cwc-ai-gw-ncus-001
       dns_propagation_seconds:
         description: Seconds to wait after creating the DNS-01 TXT record.
         required: true

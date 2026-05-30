@@ -5,7 +5,7 @@ param tags object
 param firewallSubnetId string
 
 resource firewallPolicy 'Microsoft.Network/firewallPolicies@2024-05-01' = {
-  name: 'afwp-cwc-ai-gw-eus2-001'
+  name: 'afwp-cwc-ai-gw-ncus-001'
   location: location
   tags: tags
   properties: {
@@ -20,7 +20,7 @@ resource firewallPolicy 'Microsoft.Network/firewallPolicies@2024-05-01' = {
 }
 
 resource firewallPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
-  name: 'pip-afw-cwc-ai-gw-eus2-001'
+  name: 'pip-afw-cwc-ai-gw-ncus-001'
   location: location
   tags: tags
   sku: {
@@ -33,7 +33,7 @@ resource firewallPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
 }
 
 resource azureFirewall 'Microsoft.Network/azureFirewalls@2024-05-01' = {
-  name: 'afw-cwc-ai-gw-eus2-001'
+  name: 'afw-cwc-ai-gw-ncus-001'
   location: location
   tags: tags
   properties: {

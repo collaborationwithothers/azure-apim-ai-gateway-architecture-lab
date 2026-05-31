@@ -343,6 +343,10 @@ while IFS= read -r workflow; do
       "validate" \
       "what-if" \
       "apply" \
+      "deployment_name:" \
+      "apim-ai-gateway-lab-ncus" \
+      "DEPLOYMENT_NAME" \
+      "deployment_name must end with -ncus when deployment_location is northcentralus" \
       "runnerAllowedPublicIp" \
       "enablePublicEdge" \
       "enableCustomDomain" \

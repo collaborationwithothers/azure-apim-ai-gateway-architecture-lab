@@ -157,6 +157,7 @@ For deployment preflight, use the self-hosted runner workflow or run manually fr
 Run what-if before apply:
 
     az deployment sub what-if \
+      --name apim-ai-gateway-lab-ncus \
       --location northcentralus \
       --template-file infra/bicep/main.bicep \
       --parameters location=northcentralus \
@@ -165,6 +166,7 @@ Run what-if before apply:
 Run apply only after reviewing what-if:
 
     az deployment sub create \
+      --name apim-ai-gateway-lab-ncus \
       --location northcentralus \
       --template-file infra/bicep/main.bicep \
       --parameters location=northcentralus \

@@ -64,6 +64,10 @@ on:
           - validate
           - what-if
           - apply
+      deployment_location:
+        default: northcentralus
+      deployment_name:
+        default: apim-ai-gateway-lab-ncus
       enable_public_edge:
         type: choice
         options:
@@ -107,11 +111,17 @@ jobs:
       contents: read
       id-token: write
     env:
+      DEPLOYMENT_LOCATION: northcentralus
+      DEPLOYMENT_NAME: apim-ai-gateway-lab-ncus
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
+          if [[ "\$DEPLOYMENT_LOCATION" == "northcentralus" && "\$DEPLOYMENT_NAME" != *-ncus ]]; then
+            echo "deployment_name must end with -ncus when deployment_location is northcentralus." >&2
+            exit 1
+          fi
           if [[ ! "\$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
             echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
             exit 1
@@ -123,7 +133,7 @@ jobs:
           az provider show --namespace Microsoft.Insights
           az provider show --namespace Microsoft.OperationalInsights
           az provider show --namespace Microsoft.Web
-          az deployment sub what-if --location northcentralus --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
+          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
   apply:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -139,17 +149,23 @@ jobs:
       contents: read
       id-token: write
     env:
+      DEPLOYMENT_LOCATION: northcentralus
+      DEPLOYMENT_NAME: apim-ai-gateway-lab-ncus
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
+          if [[ "\$DEPLOYMENT_LOCATION" == "northcentralus" && "\$DEPLOYMENT_NAME" != *-ncus ]]; then
+            echo "deployment_name must end with -ncus when deployment_location is northcentralus." >&2
+            exit 1
+          fi
           if [[ ! "\$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
             echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
             exit 1
           fi
           az provider register --namespace Microsoft.Network
-          az deployment sub create --location northcentralus --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
+          az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
 EOF
   cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
 name: Certificate Issue

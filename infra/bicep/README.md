@@ -107,7 +107,7 @@ Validate from an authenticated shell:
 Run what-if:
 
     az deployment sub what-if \
-      --name apim-ai-gateway-lab \
+      --name apim-ai-gateway-lab-ncus \
       --location northcentralus \
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
@@ -115,7 +115,7 @@ Run what-if:
 Run apply:
 
     az deployment sub create \
-      --name apim-ai-gateway-lab \
+      --name apim-ai-gateway-lab-ncus \
       --location northcentralus \
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false

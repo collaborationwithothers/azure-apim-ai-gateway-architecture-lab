@@ -36,6 +36,13 @@ Q: Why not deploy AKS now?
 
 A: AKS introduces node pools, Kubernetes version, outbound type, workload identity, ACR pull, ingress, and upgrade policy decisions. This pass creates only `snet-aks`.
 
+Q: Why expose spoke network outputs now?
+
+A: Future AKS, private endpoint, Redis, Foundry, GitOps, and workload slices
+need stable spoke VNet, subnet, and route table IDs. The outputs are
+non-sensitive contracts for later modules and workflows. They do not imply those
+downstream resources already exist.
+
 Q: Why APIM Premium v2?
 
 A: It provides the private gateway VNet injection pattern selected for this platform. It also means the direct APIM management endpoint is not available, so management must use Azure portal, ARM, and GitHub Actions.
@@ -234,6 +241,9 @@ Enabling APIM body logging improves demo observability but increases data sensit
 - `git diff --check` returns no whitespace errors.
 - `az bicep build --file infra/bicep/main.bicep` succeeds after implementation.
 - `az deployment sub what-if` shows only expected resources in hub and spoke resource groups.
+- The deployment exposes non-sensitive spoke VNet, subnet, and route table
+  outputs without deploying AKS, Redis, Foundry, GitOps, private endpoints, or
+  workloads.
 - Workflows have no pull request triggers.
 - Workflows include repository, actor, and branch guards.
 - Application Gateway backend health for APIM is healthy after certificate binding.

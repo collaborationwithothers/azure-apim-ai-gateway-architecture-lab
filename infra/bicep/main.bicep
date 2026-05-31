@@ -121,6 +121,13 @@ module runnerPeerings './modules/runner-peerings.bicep' = {
 
 output hubResourceGroupName string = hubRg.name
 output spokeResourceGroupName string = spokeRg.name
+output spokeVnetId string = spoke.outputs.spokeVnetId
+output spokeVnetName string = spoke.outputs.spokeVnetName
+output workloadSubnetId string = spoke.outputs.workloadSubnetId
+output privateEndpointsSubnetId string = spoke.outputs.privateEndpointsSubnetId
+output aksSubnetId string = spoke.outputs.aksSubnetId
+output workloadRouteTableId string = spoke.outputs.workloadRouteTableId
+output aksRouteTableId string = spoke.outputs.aksRouteTableId
 output logAnalyticsWorkspaceId string = hub.outputs.logAnalyticsWorkspaceId
 output publicDnsZoneName string = publicHostname
 output keyVaultName string = hub.outputs.keyVaultName

@@ -311,6 +311,14 @@ Acceptance criteria:
   - `id-token: write` only on Azure jobs that need OIDC
 - The fixed `dev` GitHub Environment approval is required before Azure-changing jobs.
 - Deployment workflows pin third-party actions to full commit SHAs.
+- Planned spoke demo workflows for AKS power control, GitOps bootstrap, APIOps
+  publishing, ACR image build or push, image promotion, and lab SAN certificate
+  issuance follow the same guardrail posture before they are added.
+- Azure-changing workflows reject `push`, `pull_request`, and
+  `pull_request_target` triggers.
+- Planned Azure-changing workflows do not accept caller-controlled Azure target
+  names such as resource group, AKS cluster, ACR, APIM, Key Vault, DNS zone,
+  certificate, subscription, tenant, Foundry account, or model deployment names.
 
 ### FR-15: Diagnostics
 

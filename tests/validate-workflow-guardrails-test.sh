@@ -282,6 +282,149 @@ EOF
   "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-success.out
 }
 
+write_planned_spoke_workflow() {
+  local file="$1"
+  local command="$2"
+
+  cat >"$file" <<EOF
+name: Planned Spoke Workflow
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+permissions:
+  contents: read
+jobs:
+  apply:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          $command
+EOF
+}
+
+expect_success_for_planned_spoke_workflow_taxonomy() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+
+  write_planned_spoke_workflow "$dir/.github/workflows/aks-power.yml" \
+    "az aks start --resource-group rg-cwc-ai-gw-spoke-swc-001 --name aks-cwc-ai-gw-swc-001"
+  write_planned_spoke_workflow "$dir/.github/workflows/gitops-bootstrap.yml" \
+    "az k8s-extension create --name argocd --cluster-name aks-cwc-ai-gw-swc-001"
+  write_planned_spoke_workflow "$dir/.github/workflows/apiops-publish.yml" \
+    "az apim api import --resource-group rg-cwc-ai-gw-hub-swc-001 --service-name apim-cwc-ai-gw-swc-001"
+  write_planned_spoke_workflow "$dir/.github/workflows/acr-image-build.yml" \
+    "az acr build --registry acrcwcaigwswc001 --image bff:sha ."
+  write_planned_spoke_workflow "$dir/.github/workflows/image-promotion.yml" \
+    "az acr repository show-tags --name acrcwcaigwswc001 --repository bff"
+  write_planned_spoke_workflow "$dir/.github/workflows/lab-certificate-issue.yml" \
+    "az keyvault certificate import --vault-name kv-cwc-ai-gw-swc-001 --name cert-lab-consultwithcloud-com"
+
+  "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-spoke-success.out
+}
+
+expect_failure_for_planned_workflow_caller_controlled_target() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/aks-power.yml" <<EOF
+name: AKS Power
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      aks_cluster_name:
+        required: true
+permissions:
+  contents: read
+jobs:
+  stop:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: az aks stop --resource-group rg-cwc-ai-gw-spoke-swc-001 --name "\${{ inputs.aks_cluster_name }}"
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-target-input.out 2>&1; then
+    echo "expected caller-controlled planned workflow target to fail" >&2
+    return 1
+  fi
+  grep -q "must not accept caller-controlled Azure target input" \
+    /tmp/workflow-guardrails-planned-target-input.out
+}
+
+expect_failure_for_azure_changing_push_trigger() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/acr-image-build.yml" <<EOF
+name: ACR Image Build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: az acr build --registry acrcwcaigwswc001 --image bff:sha .
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-push-trigger.out 2>&1; then
+    echo "expected Azure-changing push trigger to fail" >&2
+    return 1
+  fi
+  grep -q "must not contain push triggers" \
+    /tmp/workflow-guardrails-push-trigger.out
+}
+
 expect_failure_for_destroy_target_inputs() {
   local dir
   dir="$(mktemp -d)"
@@ -1181,6 +1324,9 @@ EOF
 expect_success
 expect_success_for_guarded_deployment_workflows
 expect_success_for_guarded_destroy_workflow
+expect_success_for_planned_spoke_workflow_taxonomy
+expect_failure_for_planned_workflow_caller_controlled_target
+expect_failure_for_azure_changing_push_trigger
 expect_failure_for_destroy_target_inputs
 expect_failure_for_destroy_missing_confirmation_check
 expect_failure_for_destroy_command_outside_guarded_workflow

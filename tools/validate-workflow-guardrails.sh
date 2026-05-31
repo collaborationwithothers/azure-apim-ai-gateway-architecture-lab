@@ -36,7 +36,12 @@ has_destructive_destroy_command() {
   grep -Eq 'az (group delete|network vnet peering delete)' "$file"
 }
 
-is_guarded_deployment_workflow() {
+has_azure_changing_command() {
+  local file="$1"
+  grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
+}
+
+is_existing_guarded_workflow() {
   case "$1" in
     .github/workflows/infra-deploy.yml|.github/workflows/infra-destroy.yml|.github/workflows/certificate-issue.yml)
       return 0
@@ -45,6 +50,68 @@ is_guarded_deployment_workflow() {
       return 1
       ;;
   esac
+}
+
+is_planned_spoke_workflow_name() {
+  case "$1" in
+    .github/workflows/aks-power.yml|\
+    .github/workflows/aks-start-stop.yml|\
+    .github/workflows/gitops-bootstrap.yml|\
+    .github/workflows/apiops-publish.yml|\
+    .github/workflows/acr-image-build.yml|\
+    .github/workflows/image-build.yml|\
+    .github/workflows/image-promotion.yml|\
+    .github/workflows/lab-certificate-issue.yml|\
+    .github/workflows/certificate-lab-san.yml)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_guarded_deployment_workflow() {
+  local rel="$1"
+  local file="${2:-}"
+
+  if is_existing_guarded_workflow "$rel" || is_planned_spoke_workflow_name "$rel"; then
+    return 0
+  fi
+
+  if [[ -n "$file" ]] && has_azure_changing_command "$file"; then
+    return 0
+  fi
+
+  return 1
+}
+
+caller_controlled_azure_target_inputs() {
+  local file="$1"
+  local matches=()
+
+  for target_input in \
+    resource_group_name \
+    hub_resource_group_name \
+    spoke_resource_group_name \
+    aks_cluster_name \
+    acr_name \
+    apim_service_name \
+    key_vault_name \
+    dns_zone_name \
+    certificate_name \
+    foundry_account_name \
+    model_deployment_name \
+    subscription_id \
+    tenant_id; do
+    if has_literal "${target_input}:" "$file"; then
+      matches+=("$target_input")
+    fi
+  done
+
+  if [[ "${#matches[@]}" -gt 0 ]]; then
+    printf '%s\n' "${matches[@]}"
+  fi
 }
 
 has_top_level_oidc_permission() {
@@ -103,7 +170,7 @@ azure_changing_jobs_without_environment() {
       has_environment = 1
     }
 
-    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete)/ {
+    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)/ {
       has_azure_change = 1
     }
 
@@ -221,6 +288,11 @@ while IFS= read -r workflow; do
     fail "$rel must not contain pull_request triggers"
   fi
 
+  if grep -Eq '^[[:space:]]*push[[:space:]]*:' "$workflow" ||
+      grep -Eq '^[[:space:]]*on:[[:space:]]*\[.*push' "$workflow"; then
+    fail "$rel must not contain push triggers"
+  fi
+
   if ! grep -q "workflow_dispatch:" "$workflow"; then
     fail "$rel must be manually triggerable with workflow_dispatch"
   fi
@@ -237,7 +309,7 @@ while IFS= read -r workflow; do
     fi
   done
 
-  if is_guarded_deployment_workflow "$rel"; then
+  if is_guarded_deployment_workflow "$rel" "$workflow"; then
     if ! has_literal "github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab'" "$workflow"; then
       fail "$rel must guard github.repository against the literal repository name"
     fi
@@ -276,11 +348,11 @@ while IFS= read -r workflow; do
     fail "$rel must not mutate the managed runner at runtime"
   fi
 
-  if ! is_guarded_deployment_workflow "$rel" && has_destructive_destroy_command "$workflow"; then
+  if [[ "$rel" != ".github/workflows/infra-destroy.yml" ]] && has_destructive_destroy_command "$workflow"; then
     fail "$rel must not contain destructive Azure delete commands outside guarded deployment workflows"
   fi
 
-  if is_guarded_deployment_workflow "$rel"; then
+  if is_guarded_deployment_workflow "$rel" "$workflow"; then
     if ! grep -q "id-token: write" "$workflow"; then
       fail "$rel must set id-token: write permission"
     fi
@@ -316,6 +388,13 @@ while IFS= read -r workflow; do
 
     if ! has_literal "environment: dev" "$workflow"; then
       fail "$rel must use the fixed dev GitHub Environment for Azure-changing jobs"
+    fi
+
+    if ! is_existing_guarded_workflow "$rel"; then
+      caller_controlled_targets="$(caller_controlled_azure_target_inputs "$workflow")"
+      if [[ -n "$caller_controlled_targets" ]]; then
+        fail "$rel must not accept caller-controlled Azure target input: ${caller_controlled_targets//$'\n'/, }"
+      fi
     fi
   fi
 

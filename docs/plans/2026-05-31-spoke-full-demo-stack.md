@@ -82,6 +82,9 @@ private endpoints, GitOps resources, or application workloads.
 
 ## Test Plan
 
+- Workflow guardrails: verify planned Azure-changing workflows are manual-only,
+  run through the fixed runner and `dev` environment, pin third-party actions,
+  use OIDC, and reject caller-controlled Azure target names.
 - Bicep: run `az bicep build --file infra/bicep/main.bicep` and a subscription-scope what-if.
 - DNS and certificate: verify child zone delegation, SAN certificate import, and Application Gateway listener bindings.
 - Network: verify hub-to-spoke, APIM-to-private-model, BFF-to-APIM, and Application Gateway-to-Istio paths.

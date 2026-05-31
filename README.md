@@ -119,6 +119,12 @@ group with the `[gh-linux]` label, use OIDC through a SHA-pinned `azure/login`, 
 `github.actor == 'haripraghash'`, check the literal repository name, and use
 the fixed `dev` GitHub Environment approval.
 
+The workflow guardrail validator also reserves the same posture for planned
+spoke demo workflow classes: AKS power control, GitOps bootstrap, APIOps
+publishing, ACR image build or push, image promotion, and lab SAN certificate
+issuance. Those workflows must stay manual-only and must not accept
+caller-controlled Azure target names.
+
 Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`.
 The workflow reads the runner NAT CIDR from the `RUNNER_ALLOWED_PUBLIC_IP_CIDR`
 variable on the `dev` GitHub Environment. It accepts the remaining non-secret

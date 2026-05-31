@@ -129,7 +129,10 @@ Use `.github/workflows/bootstrap-persistent.yml` first for create/update of the
 retained shared resources. It creates `rg-cwc-ai-gw-shared-swc-001`, Key Vault
 `kv-cwc-aigw-shr-swc-001`, and the `lab.consultwithcloud.com` Azure DNS public
 child zone. The bootstrap workflow has only `validate`, `what-if`, and `apply`
-modes. It has no destroy mode.
+modes. It has no destroy mode. It also infers the fixed GitHub runner subnet
+`snet-github-actions-private-runner-neu` in `vnet-dv-gh-actions-neu` and keeps
+that subnet on the shared Key Vault network rules so runner traffic can use the
+Key Vault service endpoint path.
 
 Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`
 of the ephemeral hub and spoke platform.
@@ -161,7 +164,7 @@ separate later infrastructure step. The deployment is staged:
 1. Run persistent bootstrap in `apply` mode.
 2. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
 3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
-4. Rerun persistent bootstrap in `apply` mode. The workflow infers the hub Application Gateway and APIM subnet IDs and updates the shared Key Vault network rules.
+4. Rerun persistent bootstrap in `apply` mode. The workflow keeps the GitHub runner subnet on the Key Vault rules, infers the hub Application Gateway and APIM subnet IDs, and updates the shared Key Vault network rules.
 5. After parent-zone delegation is in place, run the certificate workflow in staging mode.
 6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`.
 7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.

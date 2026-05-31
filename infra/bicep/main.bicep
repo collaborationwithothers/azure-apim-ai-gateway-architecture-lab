@@ -119,8 +119,16 @@ module runnerPeerings './modules/runner-peerings.bicep' = {
   }
 }
 
+module deploymentOutputs './outputs.bicep' = {
+  name: 'deployment-outputs'
+  params: {
+    spokeNetwork: spoke.outputs.spokeNetwork
+  }
+}
+
 output hubResourceGroupName string = hubRg.name
 output spokeResourceGroupName string = spokeRg.name
+output spokeNetwork object = deploymentOutputs.outputs.spokeNetwork
 output logAnalyticsWorkspaceId string = hub.outputs.logAnalyticsWorkspaceId
 output publicDnsZoneName string = publicHostname
 output keyVaultName string = hub.outputs.keyVaultName

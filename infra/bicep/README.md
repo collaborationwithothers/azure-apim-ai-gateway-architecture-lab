@@ -21,6 +21,30 @@
 
 Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, and private IPs through module parameters and outputs instead of relying on implicit resource ordering across files.
 
+## Spoke Output Contract
+
+The spoke module exposes non-sensitive network outputs so later slices can
+attach AKS, private endpoints, Redis, Foundry, GitOps, and workload components
+without rediscovering resource IDs. `infra/bicep/outputs.bicep` shapes those
+values into the top-level `spokeNetwork` deployment output. These outputs are
+contracts for downstream modules and workflows. They are not proof that those
+downstream resources exist.
+
+Current spoke outputs:
+
+- `spokeVnetId`
+- `spokeVnetName`
+- `workloadSubnetId`
+- `privateEndpointsSubnetId`
+- `aksSubnetId`
+- `workloadRouteTableId`
+- `aksRouteTableId`
+
+The workload and AKS route tables continue to send `0.0.0.0/0` to Azure
+Firewall through the existing `VirtualAppliance` next hop. Issue #30 does not
+deploy AKS, Redis, Foundry, Istio, Argo CD, private endpoints, or application
+workloads.
+
 ## Parameters
 
 | Parameter | Purpose |

@@ -48,8 +48,18 @@ Argo CD is exposed at `argo.lab.consultwithcloud.com` behind Application Gateway
 - Use Key Vault CSI with AKS Workload Identity for Kubernetes secret consumption.
 - Defer AKS admission policy and Azure Policy enforcement, but record this as a risk because the AKS API and Argo CD UI are internet-exposed.
 
+## Prerequisite Slice
+
+Before deploying the full spoke demo stack, expose the existing spoke VNet,
+subnet, and route table IDs as non-sensitive Bicep outputs. This prerequisite
+slice is contract-only. It must not deploy AKS, Redis, Foundry, Istio, Argo CD,
+private endpoints, GitOps resources, or application workloads.
+
 ## Implementation Changes
 
+- Expose the existing spoke VNet, workload subnet, private endpoint subnet, AKS
+  subnet, workload route table, and AKS route table as non-sensitive Bicep
+  outputs before downstream slices depend on them.
 - Update Bicep to parameterize the lab DNS zone, public hostnames, SAN certificate secret URI, Foundry or model deployment settings, AKS settings, Redis settings, and GitOps settings.
 - Extend Application Gateway with separate HTTPS listeners and routing rules for `api`, `app`, and `argo` under `lab.consultwithcloud.com`.
 - Update the certificate workflow to issue and import a SAN certificate covering all three lab hostnames.

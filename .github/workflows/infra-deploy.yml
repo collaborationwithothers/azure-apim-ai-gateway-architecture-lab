@@ -88,6 +88,9 @@ jobs:
       - name: Validate lab public DNS zone
         run: bash tests/validate-lab-public-dns-zone-test.sh
 
+      - name: Validate spoke output contract
+        run: bash tests/validate-spoke-output-contract-test.sh
+
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"
 
@@ -174,6 +177,9 @@ jobs:
 
       - name: Validate lab public DNS zone
         run: bash tests/validate-lab-public-dns-zone-test.sh
+
+      - name: Validate spoke output contract
+        run: bash tests/validate-spoke-output-contract-test.sh
 
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"
@@ -272,6 +278,9 @@ jobs:
 
       - name: Validate lab public DNS zone
         run: bash tests/validate-lab-public-dns-zone-test.sh
+
+      - name: Validate spoke output contract
+        run: bash tests/validate-spoke-output-contract-test.sh
 
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"

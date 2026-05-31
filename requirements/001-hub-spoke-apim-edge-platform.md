@@ -48,6 +48,7 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 - Subscription-scope Bicep deployment.
 - Hub resource group and spoke resource group in `swedencentral`.
 - Hub VNet, spoke VNet, and direct peerings among hub, spoke, and existing runner VNet.
+- Non-sensitive spoke network outputs for downstream implementation slices.
 - Azure Firewall Standard, Firewall Policy, public IP, and structured diagnostics.
 - Application Gateway WAF v2 in Prevention mode.
 - APIM Premium v2 with VNet injection in the hub.
@@ -140,6 +141,17 @@ Acceptance criteria:
   - `snet-aks`: `10.20.10.0/23`
 - Route tables send `0.0.0.0/0` from `snet-workload` and `snet-aks` to the Azure Firewall private IP.
 - `disableBgpRoutePropagation` remains `false`.
+- The deployment exposes a non-sensitive `spokeNetwork` output for downstream
+  slices with:
+  - `spokeVnetId`
+  - `spokeVnetName`
+  - `workloadSubnetId`
+  - `privateEndpointsSubnetId`
+  - `aksSubnetId`
+  - `workloadRouteTableId`
+  - `aksRouteTableId`
+- Spoke outputs are contracts for downstream slices and do not prove AKS,
+  Redis, Foundry, GitOps, private endpoints, or workloads exist.
 
 ### FR-5: Existing runner VNet connectivity
 

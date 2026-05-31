@@ -112,3 +112,12 @@ resource spokeToRunnerPeering 'Microsoft.Network/virtualNetworks/virtualNetworkP
 }
 
 output spokeVnetId string = spokeVnet.id
+output spokeNetwork object = {
+  spokeVnetId: spokeVnet.id
+  spokeVnetName: spokeVnet.name
+  workloadSubnetId: '${spokeVnet.id}/subnets/snet-workload'
+  privateEndpointsSubnetId: '${spokeVnet.id}/subnets/snet-private-endpoints'
+  aksSubnetId: '${spokeVnet.id}/subnets/snet-aks'
+  workloadRouteTableId: workloadRouteTable.id
+  aksRouteTableId: aksRouteTable.id
+}

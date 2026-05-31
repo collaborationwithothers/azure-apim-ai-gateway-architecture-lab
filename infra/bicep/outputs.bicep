@@ -1,6 +1,8 @@
-targetScope = 'resourceGroup'
+targetScope = 'subscription'
 
-// Placeholder file for future shared outputs.
-// Do not output secrets, keys, tokens, or tenant-specific identifiers.
+@description('Non-sensitive spoke network contract consumed by later implementation slices.')
+param spokeNetwork object
 
-output guidance string = 'Add non-sensitive APIM gateway URL, diagnostics workspace ID, and backend resource IDs in a later implementation pass.'
+// Keep deployment outputs non-sensitive. Deployment outputs are stored in
+// deployment history and can be read by users with deployment read access.
+output spokeNetwork object = spokeNetwork

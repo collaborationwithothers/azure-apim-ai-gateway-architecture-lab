@@ -16,7 +16,7 @@ The lab needs a deployable Azure hub-spoke foundation for an API Management base
 
 ### Goals
 
-Build a subscription-scope Bicep deployment that creates the hub and spoke resource groups in `swedencentral`, deploys shared edge and security services into the hub, deploys workload network foundations into the spoke, peers the existing GitHub runner VNet to both hub and spoke, and can be run only through guarded manual GitHub Actions workflows.
+Build subscription-scope Bicep deployments that create a retained shared resource group plus ephemeral hub and spoke resource groups in `swedencentral`, deploy shared certificate and public DNS resources into the retained group, deploy edge and security services into the hub, deploy workload network foundations into the spoke, peers the existing GitHub runner VNet to both hub and spoke, and can be run only through guarded manual GitHub Actions workflows.
 
 ### Non-goals
 
@@ -52,8 +52,9 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 - Azure Firewall Standard, Firewall Policy, public IP, and structured diagnostics.
 - Application Gateway WAF v2 in Prevention mode.
 - APIM Premium v2 with VNet injection in the hub.
-- Public DNS child zone `lab.consultwithcloud.com` for the lab edge and full demo hostnames.
-- Key Vault Standard with soft delete and purge protection.
+- Retained shared resource group `rg-cwc-ai-gw-shared-swc-001`.
+- Public DNS child zone `lab.consultwithcloud.com` for the lab edge and full demo hostnames in the retained shared resource group.
+- Key Vault Standard `kv-cwc-aigw-shr-swc-001` with soft delete and purge protection in the retained shared resource group.
 - Let's Encrypt certificate issuance workflow using ACME DNS-01 and Key Vault import.
 - ACR Premium with admin user disabled, diagnostics, and public IP firewall restriction.
 - Log Analytics workspace with 30-day retention.
@@ -76,7 +77,7 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 |---|---|
 | `infra/bicep/main.bicep` | Subscription-scope orchestration entry point. |
 | `infra/bicep/modules/` | Hub, spoke, and runner peering modules. |
-| `.github/workflows/` | Guarded manual deployment and certificate workflows. |
+| `.github/workflows/` | Guarded manual bootstrap, deployment, destroy, and certificate workflows. |
 | `README.md` | Deployment, safety, APIM body logging, and public repo workflow warnings. |
 | `infra/bicep/README.md` | Deployment and parameter instructions. |
 | `requirements/index.md` | Add REQ-001. |
@@ -97,6 +98,7 @@ Acceptance criteria:
 - `az deployment sub what-if` can evaluate both resource groups from one template.
 - Hub RG is `rg-cwc-ai-gw-hub-swc-001`.
 - Spoke RG is `rg-cwc-ai-gw-spoke-swc-001`.
+- Retained shared RG is `rg-cwc-ai-gw-shared-swc-001` and is created by the create/update-only persistent bootstrap workflow.
 
 ### FR-2: Region and subscription
 
@@ -234,32 +236,37 @@ Acceptance criteria:
 
 ### FR-10: DNS
 
-Description: Create public and private DNS records required by the edge design.
+Description: Create or reference public and private DNS records required by the edge design.
 
 Rationale: Public clients resolve Application Gateway, while Application Gateway must resolve APIM privately.
 
 Acceptance criteria:
 
-- Public DNS child zone `lab.consultwithcloud.com` exists in Azure DNS.
+- Public DNS child zone `lab.consultwithcloud.com` exists in Azure DNS in `rg-cwc-ai-gw-shared-swc-001`.
+- The hub-spoke deployment references `lab.consultwithcloud.com` as an existing public DNS zone.
 - The deployment outputs the Azure DNS name servers required to delegate `lab.consultwithcloud.com` from Cloudflare.
 - `api` A record in that child zone is an alias to the Application Gateway public IP.
 - A private DNS zone or equivalent private record maps APIM gateway hostname to the APIM private IP and is linked to the hub VNet.
 - No Azure DNS Private Resolver is deployed.
+- No public DNS zone is created for `api.consultwithcloud.com`.
 
 ### FR-11: Key Vault
 
-Description: Deploy Key Vault Standard for certificate storage.
+Description: Deploy retained shared Key Vault Standard for certificate storage through persistent bootstrap and reference it from the hub-spoke deployment.
 
 Rationale: Application Gateway and APIM need a managed certificate source.
 
 Acceptance criteria:
 
 - SKU is `Standard`.
+- Vault name is `kv-cwc-aigw-shr-swc-001`.
+- Vault resource group is `rg-cwc-ai-gw-shared-swc-001`.
 - Soft delete and purge protection are enabled with 90-day retention.
 - Diagnostic settings send logs and metrics to Log Analytics.
 - Public network access is restricted to selected networks and the runner NAT public IP.
 - Application Gateway user-assigned identity can read certificate secrets.
 - APIM system-assigned identity can read the certificate.
+- The destroy workflow retains the shared Key Vault.
 
 ### FR-12: ACR
 
@@ -285,9 +292,9 @@ Acceptance criteria:
 
 - Workflow is `workflow_dispatch` only.
 - Workflow uses OIDC, not a client secret.
-- Workflow imports the certificate using the confirmed Key Vault certificate object name.
+- Workflow imports the certificate using fixed Key Vault certificate object name `cert-lab-consultwithcloud-com`.
 - Workflow imports a PFX certificate for Application Gateway TLS termination.
-- The future lab certificate object name remains an open decision and is not assigned by this requirement.
+- The lab SAN certificate object name is `cert-lab-consultwithcloud-com`.
 - Workflow has the same repository, actor, branch, runner, and environment guards as deployment.
 
 ### FR-14: GitHub Actions guardrails
@@ -368,6 +375,11 @@ Use Azure Verified Modules where they fit and pin versions explicitly. Use raw B
 ### NFR-4: Idempotence
 
 The Bicep deployment and workflows must be safe to re-run. Certificate issuance must handle existing Key Vault certificate versions without replacing unrelated resources.
+The persistent bootstrap workflow must be create/update only. The destroy
+workflow must retain `rg-cwc-ai-gw-shared-swc-001`,
+`kv-cwc-aigw-shr-swc-001`, `lab.consultwithcloud.com`, and manual Cloudflare
+delegation, while purging soft-deleted APIM service `apim-cwc-ai-gw-swc-001`
+in `swedencentral`.
 
 ### NFR-5: Documentation
 
@@ -378,7 +390,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 - APIM body logging is intentionally enabled for the lab and must be clearly warned about because it can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data.
 - Do not commit secrets, PFX files, ACME account keys, tenant credentials, or generated deployment outputs.
 - The certificate workflow uses the same OIDC identity path as the infrastructure workflow. Deployment service principals must receive Key Vault certificate operation access through the permanent deployment admin group.
-- The permanent deployment admin group must receive Key Vault Administrator at the lab vault scope and AcrPush at the lab ACR scope.
+- The permanent deployment admin group must receive Key Vault Administrator at the shared vault scope and AcrPush at the lab ACR scope.
 - The workflow identity must already have management-plane permission to create role assignments before the Bicep deployment can grant Key Vault or ACR access.
 - APIM receives Key Vault Secrets User and Key Vault Certificate User. Application Gateway receives Key Vault Secrets User.
 - ACR access for APIM, Application Gateway, and future workload identities is intentionally deferred until a concrete container image consumer exists.

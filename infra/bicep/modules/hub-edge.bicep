@@ -4,8 +4,6 @@ param location string
 param tags object
 param enablePublicEdge bool
 param publicHostname string
-param labPublicDnsZoneName string
-param publicDnsRecordName string
 param customDomainCertificateSecretUri string
 param wafAllowedSourceCidrs array
 param appGwSubnetId string
@@ -25,18 +23,6 @@ resource appGwPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
   }
   properties: {
     publicIPAllocationMethod: 'Static'
-  }
-}
-
-resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
-  name: labPublicDnsZoneName
-}
-
-module labPublicDnsZone 'br/public:avm/res/network/dns-zone:0.6.0' = {
-  name: 'lab-public-dns-zone'
-  params: {
-    name: labPublicDnsZoneName
-    tags: tags
   }
 }
 
@@ -225,20 +211,6 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
   }
 }
 
-resource publicDnsAlias 'Microsoft.Network/dnsZones/A@2018-05-01' = if (enablePublicEdge) {
-  parent: dnsZone
-  name: publicDnsRecordName
-  dependsOn: [
-    labPublicDnsZone
-  ]
-  properties: {
-    TTL: 300
-    targetResource: {
-      id: appGwPublicIp.id
-    }
-  }
-}
-
 output applicationGatewayName string = enablePublicEdge ? appGateway.name : 'not-deployed-until-enablePublicEdge-true'
 output applicationGatewayId string = enablePublicEdge ? appGateway.id : ''
-output labPublicDnsZoneNameServers array = labPublicDnsZone.outputs.nameServers
+output applicationGatewayPublicIpId string = appGwPublicIp.id

@@ -33,7 +33,7 @@ has_literal() {
 
 has_destructive_destroy_command() {
   local file="$1"
-  grep -Eq 'az (group delete|network vnet peering delete)' "$file"
+  grep -Eq 'az (group delete|network vnet peering delete|apim deletedservice purge)' "$file"
 }
 
 has_azure_changing_command() {
@@ -41,9 +41,32 @@ has_azure_changing_command() {
   grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
 }
 
+deletes_persistent_resource_group() {
+  local file="$1"
+  awk '
+    /az group delete/ {
+      block = $0
+      for (i = 0; i < 5 && $0 ~ /\\[[:space:]]*$/ && getline; i++) {
+        block = block "\n" $0
+      }
+      if (block ~ /rg-cwc-ai-gw-shared-swc-001|PERSISTENT_RESOURCE_GROUP_NAME/) {
+        found = 1
+      }
+    }
+
+    /for[[:space:]].*resource_group[[:space:]].*(rg-cwc-ai-gw-shared-swc-001|PERSISTENT_RESOURCE_GROUP_NAME)/ {
+      found = 1
+    }
+
+    END {
+      exit found ? 0 : 1
+    }
+  ' "$file"
+}
+
 is_existing_guarded_workflow() {
   case "$1" in
-    .github/workflows/infra-deploy.yml|.github/workflows/infra-destroy.yml|.github/workflows/certificate-issue.yml)
+    .github/workflows/infra-deploy.yml|.github/workflows/infra-destroy.yml|.github/workflows/bootstrap-persistent.yml|.github/workflows/certificate-issue.yml)
       return 0
       ;;
     *)
@@ -460,6 +483,14 @@ while IFS= read -r workflow; do
   fi
 
   if [[ "$rel" == ".github/workflows/infra-destroy.yml" ]]; then
+    if deletes_persistent_resource_group "$workflow"; then
+      fail "$rel must not delete persistent resource group rg-cwc-ai-gw-shared-swc-001"
+    fi
+
+    if ! grep -Eq '^[[:space:]]*CONFIRM_DESTROY_PHRASE:[[:space:]]*destroy[[:space:]]*$' "$workflow"; then
+      fail "$rel must set CONFIRM_DESTROY_PHRASE exactly to destroy"
+    fi
+
     for forbidden_input in \
       "hub_resource_group_name:" \
       "spoke_resource_group_name:" \
@@ -476,33 +507,72 @@ while IFS= read -r workflow; do
       "preview" \
       "destroy" \
       "confirm_destroy:" \
-      "CONFIRM_DESTROY_PHRASE" \
       "inputs.confirm_destroy" \
       "confirm_destroy must exactly match" \
       "rg-cwc-ai-gw-hub-swc-001" \
       "rg-cwc-ai-gw-spoke-swc-001" \
+      "PERSISTENT_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-shared-swc-001" \
+      "PERSISTENT_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001" \
+      "LAB_PUBLIC_DNS_ZONE_NAME: lab.consultwithcloud.com" \
+      "APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001" \
+      "APIM_LOCATION: swedencentral" \
+      "Cloudflare delegation" \
       "rg-dv-gh-actions-neu" \
       "vnet-dv-gh-actions-neu" \
       "peer-to-cwc-ai-gw-hub" \
       "peer-to-cwc-ai-gw-spoke" \
       "az network vnet peering show" \
       "az network vnet peering delete" \
-      "az group delete"; do
+      "az group delete" \
+      "az apim deletedservice show" \
+      "az apim deletedservice purge"; do
       if ! has_literal "$expected" "$workflow"; then
         fail "$rel is missing required destroy content: $expected"
       fi
     done
   fi
 
-  if [[ "$rel" == ".github/workflows/certificate-issue.yml" ]]; then
+  if [[ "$rel" == ".github/workflows/bootstrap-persistent.yml" ]]; then
+    if has_literal "confirm_destroy:" "$workflow" || has_literal "mode == 'destroy'" "$workflow"; then
+      fail "$rel must be create/update only and must not include destroy mode"
+    fi
+
     for expected in \
-      "certificate_name:" \
-      "KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}" \
-      "certificate_name must be a confirmed Key Vault certificate object name" \
-      "CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com" \
+      "validate" \
+      "what-if" \
+      "apply" \
+      "infra/bicep/persistent.bicep" \
+      "apim-ai-gateway-persistent-swc" \
+      "key_vault_virtual_network_rule_subnet_ids:" \
+      "KEY_VAULT_VNET_RULE_SUBNET_IDS" \
+      "keyVaultVirtualNetworkRuleSubnetIds" \
+      "az deployment sub what-if" \
+      "az deployment sub create" \
+      "Microsoft.KeyVault" \
+      "Microsoft.Network"; do
+      if ! has_literal "$expected" "$workflow"; then
+        fail "$rel is missing required persistent bootstrap content: $expected"
+      fi
+    done
+  fi
+
+  if [[ "$rel" == ".github/workflows/certificate-issue.yml" ]]; then
+    if has_literal "certificate_name:" "$workflow" || has_literal "inputs.certificate_name" "$workflow"; then
+      fail "$rel must use the fixed lab SAN certificate object name instead of a dispatch certificate_name input"
+    fi
+
+    for expected in \
+      "rg-cwc-ai-gw-shared-swc-001" \
+      "kv-cwc-aigw-shr-swc-001" \
+      "KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com" \
+      "CERTIFICATE_DOMAINS:" \
       "lab.consultwithcloud.com" \
       "api.lab.consultwithcloud.com" \
+      "app.lab.consultwithcloud.com" \
+      "argo.lab.consultwithcloud.com" \
       "_acme-challenge.api" \
+      "_acme-challenge.app" \
+      "_acme-challenge.argo" \
       "staging" \
       "production" \
       "--test-cert" \

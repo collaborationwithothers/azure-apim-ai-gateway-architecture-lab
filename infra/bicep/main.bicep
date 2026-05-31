@@ -41,6 +41,12 @@ param runnerVnetName string = 'vnet-dv-gh-actions-neu'
 @description('Delegated public DNS child zone reserved for the full lab demo.')
 param labDnsZoneName string = 'lab.consultwithcloud.com'
 
+@description('Existing persistent shared resource group created by bootstrap-persistent.yml.')
+param sharedResourceGroupName string = 'rg-cwc-ai-gw-shared-swc-001'
+
+@description('Existing persistent shared Key Vault created by bootstrap-persistent.yml.')
+param sharedKeyVaultName string = 'kv-cwc-aigw-shr-swc-001'
+
 @description('Future public APIM gateway hostname for the full lab demo.')
 param apiLabHostname string = 'api.lab.consultwithcloud.com'
 
@@ -250,6 +256,20 @@ resource spokeRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   tags: tags
 }
 
+resource sharedRg 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
+  name: sharedResourceGroupName
+}
+
+resource sharedKeyVault 'Microsoft.KeyVault/vaults@2024-11-01' existing = {
+  name: sharedKeyVaultName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+
+resource labPublicDnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
+  name: labDnsZoneName
+  scope: resourceGroup(sharedResourceGroupName)
+}
+
 module hub './modules/hub.bicep' = {
   name: 'hub-platform'
   scope: hubRg
@@ -260,11 +280,41 @@ module hub './modules/hub.bicep' = {
     enablePublicEdge: enablePublicEdge
     enableCustomDomain: enableCustomDomain
     publicHostname: publicHostname
-    labPublicDnsZoneName: labDnsZoneName
-    publicDnsRecordName: apiLabDnsRecordName
+    sharedKeyVaultName: sharedKeyVault.name
     customDomainCertificateSecretUri: certificateSecretUri
     deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
+  }
+}
+
+module sharedPublicDns './modules/shared-public-dns.bicep' = {
+  name: 'shared-public-dns'
+  scope: sharedRg
+  params: {
+    enablePublicEdge: enablePublicEdge
+    labPublicDnsZoneName: labPublicDnsZone.name
+    publicDnsRecordName: apiLabDnsRecordName
+    applicationGatewayPublicIpId: hub.outputs.applicationGatewayPublicIpId
+  }
+}
+
+module sharedKeyVaultRbac './modules/shared-key-vault-rbac.bicep' = {
+  name: 'shared-key-vault-rbac'
+  scope: sharedRg
+  params: {
+    keyVaultName: sharedKeyVault.name
+    appGwIdentityPrincipalId: hub.outputs.appGwIdentityPrincipalId
+    apimPrincipalId: hub.outputs.apimPrincipalId
+    deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
+  }
+}
+
+module sharedKeyVaultDiagnostics './modules/shared-key-vault-diagnostics.bicep' = {
+  name: 'shared-key-vault-diagnostics'
+  scope: sharedRg
+  params: {
+    logAnalyticsWorkspaceId: hub.outputs.logAnalyticsWorkspaceId
+    keyVaultName: sharedKeyVault.name
   }
 }
 
@@ -313,12 +363,16 @@ output spokeResourceGroupName string = spokeRg.name
 output spokeNetwork object = deploymentOutputs.outputs.spokeNetwork
 output spokeFullDemoContract object = deploymentOutputs.outputs.spokeFullDemoContract
 output logAnalyticsWorkspaceId string = hub.outputs.logAnalyticsWorkspaceId
-output keyVaultName string = hub.outputs.keyVaultName
+output sharedResourceGroupName string = sharedRg.name
+output keyVaultName string = sharedKeyVault.name
+output keyVaultResourceGroupName string = sharedRg.name
+output appGwSubnetId string = hub.outputs.appGwSubnetId
+output apimSubnetId string = hub.outputs.apimSubnetId
 output apimName string = hub.outputs.apimName
 output applicationGatewayName string = hub.outputs.applicationGatewayName
 output certificateSecretUri string = certificateSecretUri
 output publicHostname string = publicHostname
 output labPublicDnsZoneName string = labDnsZoneName
-output labPublicDnsZoneNameServers array = hub.outputs.labPublicDnsZoneNameServers
+output labPublicDnsZoneNameServers array = labPublicDnsZone.properties.nameServers
 output publicDnsZoneName string = labDnsZoneName
 output expectedRepositoryGuard string = expectedRepository

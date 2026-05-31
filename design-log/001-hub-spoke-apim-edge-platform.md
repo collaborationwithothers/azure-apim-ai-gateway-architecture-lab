@@ -24,9 +24,13 @@ Q: What address spaces are used?
 
 A: Hub `10.10.0.0/16`, spoke `10.20.0.0/16`, and existing runner VNet `172.16.0.0/16`.
 
+Q: What goes in the retained shared resource group?
+
+A: The create/update-only persistent bootstrap workflow owns `rg-cwc-ai-gw-shared-swc-001`, Key Vault `kv-cwc-aigw-shr-swc-001`, and the Azure DNS public child zone `lab.consultwithcloud.com`.
+
 Q: What goes in the hub?
 
-A: Hub VNet, Azure Firewall, Firewall Policy, firewall public IP, Log Analytics, ACR, Key Vault, public DNS child zone, Application Gateway WAF, APIM Premium v2, certificate-related identities, diagnostics, private APIM DNS, and hub-side peerings.
+A: Hub VNet, Azure Firewall, Firewall Policy, firewall public IP, Log Analytics, ACR, Application Gateway WAF, APIM Premium v2, certificate-related identities, diagnostics, private APIM DNS, and hub-side peerings. The hub references the shared Key Vault and public DNS zone as existing resources.
 
 Q: What goes in the spoke?
 
@@ -91,6 +95,10 @@ Q: How is the Let's Encrypt certificate created?
 
 A: A separate guarded manual GitHub Actions workflow performs ACME DNS-01 validation in Azure DNS and imports the certificate into Key Vault.
 
+Q: What does destroy retain?
+
+A: Destroy deletes the ephemeral hub and spoke resource groups and runner-side peerings, then purges soft-deleted APIM `apim-cwc-ai-gw-swc-001` in `swedencentral`. It retains `rg-cwc-ai-gw-shared-swc-001`, `kv-cwc-aigw-shr-swc-001`, `lab.consultwithcloud.com`, and the manual Cloudflare delegation.
+
 Q: Are request and response bodies logged in APIM?
 
 A: Yes, intentionally for the lab, with a README warning that prompts, completions, request bodies, response bodies, secrets, or regulated data can be ingested into Azure Monitor and Log Analytics.
@@ -114,7 +122,7 @@ flowchart LR
   appgw --> law[Log Analytics]
   apim --> law
   fw --> law
-  kv[Key Vault] --> law
+  shared[Shared RG: Key Vault and lab public DNS] --> law
   acr[ACR] --> law
 ```
 
@@ -143,17 +151,23 @@ The edge path is:
 4. APIM Premium v2 has the same gateway custom domain and certificate from Key Vault after public DNS resolution to Application Gateway is visible.
 5. Private DNS maps the APIM gateway hostname to the APIM private IP for in-network resolution.
 
-The deployment creates the public DNS child zone `lab.consultwithcloud.com` and
-outputs its Azure DNS name servers. Cloudflare owns the parent
+The persistent bootstrap deployment creates the public DNS child zone
+`lab.consultwithcloud.com`, creates shared Key Vault
+`kv-cwc-aigw-shr-swc-001`, and outputs the Azure DNS name servers. The
+hub-spoke deployment references both as existing resources and creates the
+`api` record under `lab.consultwithcloud.com`. Cloudflare owns the parent
 `consultwithcloud.com` zone, so parent delegation for `lab` is a separate
-operator step. Let's Encrypt certificate issuance and APIM custom domain binding
-remain separate later steps. The future lab certificate object name remains
-an open decision.
+operator step. There is no public DNS zone for `api.consultwithcloud.com`.
+Let's Encrypt certificate issuance and APIM custom domain binding remain
+separate later steps. The lab SAN certificate object name is
+`cert-lab-consultwithcloud-com`.
 
 GitHub Actions uses two manual workflows:
 
+- `bootstrap-persistent.yml` with `mode` input `validate`, `what-if`, or `apply`.
 - `infra-deploy.yml` with `mode` input `validate`, `what-if`, or `apply`.
 - `certificate-issue.yml` for ACME DNS-01 issuance and Key Vault import.
+- `infra-destroy.yml` with `mode` input `preview` or `destroy`.
 
 Both workflows use:
 
@@ -172,8 +186,8 @@ Both workflows use:
 2. `infra/bicep/main.bicep` now uses subscription scope.
 3. Bicep parameters avoid secrets and keep environment-specific values outside source control.
 4. Hub, spoke, and runner peering modules use raw Bicep for cross-resource wiring.
-5. The implementation declares Log Analytics, Firewall, APIM subnet NSG dependency rules, Application Gateway, APIM, Key Vault, ACR, DNS, diagnostic settings, managed identities, and role assignments.
-6. The permanent deployment admin group receives Key Vault Administrator at the lab vault scope and AcrPush at the lab ACR scope. The workflow identity must already have management-plane permission to create role assignments before the template can create these assignments.
+5. The implementation declares persistent shared Key Vault and public DNS, plus Log Analytics, Firewall, APIM subnet NSG dependency rules, Application Gateway, APIM, ACR, diagnostic settings, managed identities, and role assignments.
+6. The permanent deployment admin group receives Key Vault Administrator at the shared vault scope and AcrPush at the lab ACR scope. The workflow identity must already have management-plane permission to create role assignments before the template can create these assignments.
 7. `.github/workflows/infra-deploy.yml` adds workflow guards and OIDC Azure login.
 8. `.github/workflows/certificate-issue.yml` issues the ACME DNS-01 certificate after initial infrastructure creates DNS and Key Vault, converts it to PFX, and imports it into Key Vault.
 9. README files include warnings and runbook steps.

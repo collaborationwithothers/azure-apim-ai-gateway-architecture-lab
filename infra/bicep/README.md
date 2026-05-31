@@ -12,12 +12,15 @@
 | --- | --- |
 | `hub-network.bicep` | Hub VNet, APIM NSG, and subnet ID outputs. |
 | `hub-observability.bicep` | Log Analytics workspace and workspace-based Application Insights. |
-| `hub-security.bicep` | Key Vault, ACR, Application Gateway managed identity, and runner IP network restrictions. |
+| `hub-security.bicep` | ACR, Application Gateway managed identity, and runner IP network restrictions for ACR. |
 | `hub-firewall.bicep` | Firewall Policy, Azure Firewall public IP, and Azure Firewall. |
 | `hub-apim.bicep` | APIM Premium v2, APIM Azure Monitor diagnostic configuration, private DNS zone, hub VNet link, and private APIM A record. |
-| `hub-edge.bicep` | WAF policy, Application Gateway public IP, current and future public DNS child zones, Application Gateway, and public DNS alias. |
-| `hub-rbac.bicep` | Key Vault and ACR role assignments for deployment administrators, APIM, and Application Gateway. |
+| `hub-edge.bicep` | WAF policy, Application Gateway public IP, Application Gateway, and public DNS alias in the existing lab DNS zone. |
+| `hub-rbac.bicep` | ACR role assignment for deployment administrators at the hub resource group scope. |
 | `hub-diagnostics.bicep` | Azure Monitor diagnostic settings for hub resources. |
+| `shared-key-vault-rbac.bicep` | Shared Key Vault role assignments deployed at the shared resource group scope. |
+| `shared-key-vault-diagnostics.bicep` | Shared Key Vault diagnostic settings deployed at the shared resource group scope. |
+| `shared-public-dns.bicep` | Public DNS alias records deployed into the existing shared lab DNS zone. |
 
 Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, and private IPs through module parameters and outputs instead of relying on implicit resource ordering across files.
 
@@ -79,9 +82,10 @@ Unresolved decisions for later issues:
 - Argo SSO groups remain unresolved.
 - BFF app registration remains unresolved.
 
-Issue #29 remains the first implementation dependency because the delegated
-`lab.consultwithcloud.com` public DNS zone must exist before future hostname,
-certificate, and listener slices depend on it.
+The persistent bootstrap slice is the first implementation dependency because
+the delegated `lab.consultwithcloud.com` public DNS zone and shared Key Vault
+must exist before future hostname, certificate, and listener slices depend on
+them.
 
 AVM fit for issue #32 was checked against the Azure Verified Modules Bicep
 module index. No new resource module is added because this slice is a
@@ -99,12 +103,14 @@ GitOps, private endpoint, or workload modules.
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
 | `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
-| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI. Leave empty until the lab certificate object name is confirmed and certificate issuance is complete. |
+| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI. Leave empty until `cert-lab-consultwithcloud-com` exists and certificate issuance is complete. |
 | `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
 | `runnerVnetName` | Existing runner VNet. Defaults to `vnet-dv-gh-actions-neu`. |
 | `labDnsZoneName` | Future lab DNS zone contract value. Defaults to `lab.consultwithcloud.com`. |
+| `sharedResourceGroupName` | Existing persistent shared resource group created by `.github/workflows/bootstrap-persistent.yml`. Defaults to `rg-cwc-ai-gw-shared-swc-001`. |
+| `sharedKeyVaultName` | Existing persistent shared Key Vault created by `.github/workflows/bootstrap-persistent.yml`. Defaults to `kv-cwc-aigw-shr-swc-001`. |
 | `apiLabHostname` | Future APIM gateway hostname contract value. Defaults to `api.lab.consultwithcloud.com`. |
 | `appLabHostname` | Future BFF app hostname contract value. Defaults to `app.lab.consultwithcloud.com`. |
 | `argoLabHostname` | Future GitOps control plane hostname contract value. Defaults to `argo.lab.consultwithcloud.com`. |
@@ -128,12 +134,16 @@ The template creates these resource groups in `swedencentral`:
 - `rg-cwc-ai-gw-spoke-swc-001`
 
 The existing runner VNet is referenced, not recreated, in `rg-dv-gh-actions-neu`.
+The persistent shared resource group `rg-cwc-ai-gw-shared-swc-001` is created
+or updated only by `.github/workflows/bootstrap-persistent.yml`.
 
 ## Public DNS Zones
 
-The template creates the Azure DNS public child zone
-`lab.consultwithcloud.com`. That zone, not `api.lab.consultwithcloud.com`, is
-the DNS zone. The public API record is the `api` label under that zone.
+The persistent bootstrap template creates the Azure DNS public child zone
+`lab.consultwithcloud.com` in `rg-cwc-ai-gw-shared-swc-001`. The hub-spoke
+template references that zone as an existing resource and creates records in it.
+That zone, not `api.lab.consultwithcloud.com` or `api.consultwithcloud.com`, is
+the public DNS zone. The public API record is the `api` label under that zone.
 
 Use the `labPublicDnsZoneNameServers` deployment output to create `NS` records
 for `lab` in Cloudflare, which owns the parent `consultwithcloud.com` zone.
@@ -147,10 +157,16 @@ The lab hostname contract is:
 
 ## Deployment Flow
 
-Run phase 1 with `enablePublicEdge = false` and `enableCustomDomain = false`.
-This creates the hub and spoke foundations, DNS child zone, Key Vault, APIM,
+Run persistent bootstrap first in `apply` mode. This creates
+`rg-cwc-ai-gw-shared-swc-001`, shared Key Vault `kv-cwc-aigw-shr-swc-001`, and
+the `lab.consultwithcloud.com` public DNS zone. The bootstrap workflow is
+create/update only and has no destroy mode.
+
+Run phase 1 of the hub-spoke deployment with `enablePublicEdge = false` and
+`enableCustomDomain = false`. This creates the hub and spoke foundations, APIM,
 Log Analytics, ACR, Firewall, and peerings without binding the
-certificate-dependent edge resources.
+certificate-dependent edge resources. It references the shared Key Vault and
+public DNS zone as existing resources.
 
 ### Future Lab Zone Delegation
 
@@ -159,16 +175,22 @@ those name servers as `NS` records for `lab` in the Cloudflare
 `consultwithcloud.com` zone. This prepares the full demo hostnames only. It
 does not issue a certificate or bind an APIM custom domain.
 
+After the hub subnets exist, rerun persistent bootstrap in `apply` mode with
+`key_vault_virtual_network_rule_subnet_ids` set to a JSON array containing the
+Application Gateway and APIM subnet resource IDs from the main deployment
+outputs. This updates the shared vault network rules without recreating the
+manual Cloudflare delegation.
+
 ### Lab API Hostname Flow
 
 The APIM edge hostname is `api.lab.consultwithcloud.com`. Delegate the parent
 DNS zone `consultwithcloud.com` so `lab.consultwithcloud.com` uses the Azure DNS
 name servers created by the lab child zone. Then run
 `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT
-records in `lab.consultwithcloud.com` and import the Let's Encrypt certificate
-into Key Vault using the confirmed certificate object name. The future lab
-certificate object name remains an open decision until it is confirmed by the
-operator. The certificate workflow imports a PFX file because
+records in `lab.consultwithcloud.com` and import the Let's Encrypt SAN
+certificate into Key Vault as `cert-lab-consultwithcloud-com`. Parent zone
+delegation must be in place before production issuance. The certificate
+workflow imports a PFX file because
 Application Gateway TLS termination requires PFX certificates in Key Vault.
 
 Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
@@ -182,7 +204,7 @@ use. The workflow is manual, destructive, and guarded to run only from `main` by
 the repository owner through the fixed `dev` GitHub Environment.
 
 Preview mode is non-mutating and lists the exact cleanup targets. Destroy mode
-requires the exact confirmation phrase before it removes the runner-side
+requires the exact confirmation phrase `destroy` before it removes the runner-side
 peerings `peer-to-cwc-ai-gw-hub` and `peer-to-cwc-ai-gw-spoke` from
 `vnet-dv-gh-actions-neu` in `rg-dv-gh-actions-neu`, then deletes only these lab
 resource groups:
@@ -190,17 +212,19 @@ resource groups:
 - `rg-cwc-ai-gw-hub-swc-001`
 - `rg-cwc-ai-gw-spoke-swc-001`
 
-The workflow does not delete the runner VNet, the runner resource group, the
-parent DNS delegation, subscription deployment history, or unrelated tagged
-resources. Key Vault purge protection may keep `kv-cwc-ai-gw-swc-001`
-reserved after the hub resource group is deleted. Parent DNS delegation for
-`lab.consultwithcloud.com` may need manual cleanup outside this workflow.
+The workflow retains the runner VNet, the runner resource group, subscription
+deployment history, `rg-cwc-ai-gw-shared-swc-001`, `kv-cwc-aigw-shr-swc-001`,
+the `lab.consultwithcloud.com` public DNS zone, and the manual Cloudflare
+delegation. After deleting the hub and spoke resource groups, destroy mode
+purges soft-deleted APIM service `apim-cwc-ai-gw-swc-001` in `swedencentral`.
+APIM purge is permanent.
 
 ## Local Validation
 
 Run these checks before opening a pull request:
 
     git diff --check
+    az bicep build --file infra/bicep/persistent.bicep
     az bicep build --file infra/bicep/main.bicep
     rg -n "pull_request|pull_request_target" .github/workflows
     rg -n "client-secret|password|PFX|BEGIN PRIVATE KEY|PLACEHOLDER_SECRET" .
@@ -223,7 +247,15 @@ Validate from an authenticated shell:
 
     az bicep build --file infra/bicep/main.bicep
 
-Run what-if:
+Run persistent bootstrap what-if:
+
+    az deployment sub what-if \
+      --name apim-ai-gateway-persistent-swc \
+      --location swedencentral \
+      --template-file infra/bicep/persistent.bicep \
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip>
+
+Run hub-spoke what-if:
 
     az deployment sub what-if \
       --name apim-ai-gateway-lab-swc \
@@ -231,7 +263,15 @@ Run what-if:
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-Run apply:
+Run persistent bootstrap apply:
+
+    az deployment sub create \
+      --name apim-ai-gateway-persistent-swc \
+      --location swedencentral \
+      --template-file infra/bicep/persistent.bicep \
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip>
+
+Run hub-spoke apply:
 
     az deployment sub create \
       --name apim-ai-gateway-lab-swc \
@@ -259,8 +299,8 @@ subscription deployment output:
 
 ## RBAC Model
 
-The permanent deployment admin group receives Key Vault Administrator at the lab
-Key Vault scope and AcrPush at the lab ACR scope. These assignments let
+The permanent deployment admin group receives Key Vault Administrator at the
+shared Key Vault scope and AcrPush at the lab ACR scope. These assignments let
 deployment service principals in the group perform certificate operations and
 push platform images without granting those runtime rights to APIM or
 Application Gateway.
@@ -280,12 +320,12 @@ decision.
 
 ## AVM Decision
 
-This pass uses the pinned Azure Verified Module
+The persistent bootstrap pass uses pinned Azure Verified Modules
+`br/public:avm/res/key-vault/vault:0.12.1` for shared Key Vault and
 `br/public:avm/res/network/dns-zone:0.6.0` for the
-`lab.consultwithcloud.com` public DNS zone because that resource is an isolated
-fit and exposes the assigned Azure DNS name servers as an output. The `api`
-alias record remains local raw Bicep because it is wired directly to the
-Application Gateway public IP in the edge slice.
+`lab.consultwithcloud.com` public DNS zone because both resources are isolated
+fits. The `api` alias record remains local raw Bicep because it is wired
+directly to the Application Gateway public IP in the edge slice.
 
 The rest of the deployment uses local raw Bicep resources. The deployment needs
 tight cross-resource wiring for APIM private gateway, Application Gateway,
@@ -301,7 +341,7 @@ first successful what-if and apply.
 - `dev` GitHub Environment approval setup for Azure-changing jobs.
 - Azure federated identity credentials for GitHub OIDC.
 - Parent DNS zone delegation for `lab.consultwithcloud.com`.
-- Confirmed Key Vault object name for the lab certificate.
+- Key Vault certificate object `cert-lab-consultwithcloud-com`.
 - Confirmation that APIM Premium v2 capacity and required Azure OpenAI model quota are available in `swedencentral` at deployment time.
 
 ## Data Warning

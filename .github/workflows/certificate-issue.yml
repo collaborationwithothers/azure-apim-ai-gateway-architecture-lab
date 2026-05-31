@@ -18,13 +18,10 @@ on:
       contact_email:
         description: ACME registration email.
         required: true
-      certificate_name:
-        description: Confirmed Key Vault certificate object name for the lab API certificate.
-        required: true
       dns_zone_resource_group:
         description: Resource group that owns the Azure DNS zone.
         required: true
-        default: rg-cwc-ai-gw-hub-swc-001
+        default: rg-cwc-ai-gw-shared-swc-001
       dns_zone_name:
         description: Azure DNS zone for the lab hostnames.
         required: true
@@ -32,7 +29,7 @@ on:
       key_vault_name:
         description: Key Vault that receives the issued certificate.
         required: true
-        default: kv-cwc-ai-gw-swc-001
+        default: kv-cwc-aigw-shr-swc-001
       dns_propagation_seconds:
         description: Seconds to wait after creating the DNS-01 TXT record.
         required: true
@@ -42,9 +39,8 @@ permissions:
   contents: read
 
 env:
-  CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com
-  DNS_RECORD_SET_NAME: _acme-challenge.api
-  KEY_VAULT_CERTIFICATE_NAME: ${{ inputs.certificate_name }}
+  CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
+  KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
   DNS_ZONE_RESOURCE_GROUP: ${{ inputs.dns_zone_resource_group }}
   DNS_ZONE_NAME: ${{ inputs.dns_zone_name }}
   KEY_VAULT_NAME: ${{ inputs.key_vault_name }}
@@ -97,11 +93,6 @@ jobs:
             echo "This workflow is scoped only to the lab.consultwithcloud.com Azure DNS zone." >&2
             exit 1
           fi
-          if [[ ! "$KEY_VAULT_CERTIFICATE_NAME" =~ ^[A-Za-z0-9-]{1,127}$ ]]; then
-            echo "certificate_name must be a confirmed Key Vault certificate object name using only letters, numbers, and hyphens." >&2
-            exit 1
-          fi
-
           certbot_root="$RUNNER_TEMP/certbot"
           challenge_values="$RUNNER_TEMP/acme-challenge-values.txt"
           auth_hook="$RUNNER_TEMP/acme-auth-hook.sh"
@@ -112,39 +103,61 @@ jobs:
           cat > "$auth_hook" <<'SCRIPT'
           #!/usr/bin/env bash
           set -euo pipefail
-          if [[ "$CERTBOT_DOMAIN" != "$CERTIFICATE_DOMAIN" ]]; then
-            echo "Unexpected ACME domain: $CERTBOT_DOMAIN" >&2
-            exit 1
-          fi
+          case "$CERTBOT_DOMAIN" in
+            api.lab.consultwithcloud.com)
+              dns_record_set_name="_acme-challenge.api"
+              ;;
+            app.lab.consultwithcloud.com)
+              dns_record_set_name="_acme-challenge.app"
+              ;;
+            argo.lab.consultwithcloud.com)
+              dns_record_set_name="_acme-challenge.argo"
+              ;;
+            *)
+              echo "Unexpected ACME domain: $CERTBOT_DOMAIN" >&2
+              exit 1
+              ;;
+          esac
           az network dns record-set txt show \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$DNS_RECORD_SET_NAME" >/dev/null 2>&1 || \
+            --record-set-name "$dns_record_set_name" >/dev/null 2>&1 || \
           az network dns record-set txt create \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$DNS_RECORD_SET_NAME" \
+            --record-set-name "$dns_record_set_name" \
             --ttl 60
           az network dns record-set txt add-record \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$DNS_RECORD_SET_NAME" \
+            --record-set-name "$dns_record_set_name" \
             --value "$CERTBOT_VALIDATION"
-          printf '%s\t%s\n' "$DNS_RECORD_SET_NAME" "$CERTBOT_VALIDATION" >> "$RUNNER_TEMP/acme-challenge-values.txt"
+          printf '%s\t%s\n' "$dns_record_set_name" "$CERTBOT_VALIDATION" >> "$RUNNER_TEMP/acme-challenge-values.txt"
           sleep "$DNS_PROPAGATION_SECONDS"
           SCRIPT
 
           cat > "$cleanup_hook" <<'SCRIPT'
           #!/usr/bin/env bash
           set -euo pipefail
-          if [[ "$CERTBOT_DOMAIN" != "$CERTIFICATE_DOMAIN" ]]; then
-            echo "Unexpected ACME domain during cleanup: $CERTBOT_DOMAIN" >&2
-            exit 1
-          fi
+          case "$CERTBOT_DOMAIN" in
+            api.lab.consultwithcloud.com)
+              dns_record_set_name="_acme-challenge.api"
+              ;;
+            app.lab.consultwithcloud.com)
+              dns_record_set_name="_acme-challenge.app"
+              ;;
+            argo.lab.consultwithcloud.com)
+              dns_record_set_name="_acme-challenge.argo"
+              ;;
+            *)
+              echo "Unexpected ACME domain during cleanup: $CERTBOT_DOMAIN" >&2
+              exit 1
+              ;;
+          esac
           az network dns record-set txt remove-record \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$DNS_RECORD_SET_NAME" \
+            --record-set-name "$dns_record_set_name" \
             --value "$CERTBOT_VALIDATION" || true
           SCRIPT
 
@@ -154,6 +167,11 @@ jobs:
           if [[ "$ACME_SERVER" == "staging" ]]; then
             server_args+=(--test-cert)
           fi
+          domain_args=()
+          for domain in $CERTIFICATE_DOMAINS; do
+            domain_args+=(-d "$domain")
+          done
+
           certbot certonly \
             --manual \
             --preferred-challenges dns \
@@ -166,10 +184,10 @@ jobs:
             --config-dir "$certbot_root/config" \
             --work-dir "$certbot_root/work" \
             --logs-dir "$certbot_root/logs" \
-            -d "$CERTIFICATE_DOMAIN" \
+            "${domain_args[@]}" \
             "${server_args[@]}"
 
-          live_dir="$certbot_root/config/live/$CERTIFICATE_DOMAIN"
+          live_dir="$certbot_root/config/live/api.lab.consultwithcloud.com"
           pfx_file="$RUNNER_TEMP/$KEY_VAULT_CERTIFICATE_NAME.pfx"
           pfx_password="$(openssl rand -base64 32)"
           umask 077

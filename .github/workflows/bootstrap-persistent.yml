@@ -1,0 +1,218 @@
+name: Bootstrap Persistent
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        description: Repository allowed to run this workflow.
+        required: true
+        default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
+      mode:
+        description: Bootstrap mode.
+        required: true
+        type: choice
+        default: validate
+        options:
+          - validate
+          - what-if
+          - apply
+      deployment_location:
+        description: Azure deployment metadata location.
+        required: true
+        default: swedencentral
+      deployment_name:
+        description: Azure subscription deployment name.
+        required: true
+        default: apim-ai-gateway-persistent-swc
+      key_vault_virtual_network_rule_subnet_ids:
+        description: JSON array of hub subnet resource IDs allowed to reach Key Vault. Use [] before hub subnets exist.
+        required: true
+        default: "[]"
+
+permissions:
+  contents: read
+
+env:
+  DEPLOYMENT_LOCATION: ${{ inputs.deployment_location }}
+  DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
+  KEY_VAULT_VNET_RULE_SUBNET_IDS: ${{ inputs.key_vault_virtual_network_rule_subnet_ids }}
+  TEMPLATE_FILE: infra/bicep/persistent.bicep
+
+jobs:
+  validate:
+    name: Validate Persistent Bicep
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'validate'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Restore Bicep modules
+        run: az bicep restore --file "$TEMPLATE_FILE"
+
+      - name: Build Bicep
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: Validate persistent bootstrap contract
+        run: bash tests/validate-persistent-bootstrap-test.sh
+
+  what-if:
+    name: Azure Persistent What-if
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'what-if'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      RUNNER_ALLOWED_PUBLIC_IP: ${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Validate bootstrap inputs
+        run: |
+          set -euo pipefail
+          if [[ "$DEPLOYMENT_LOCATION" == "swedencentral" && "$DEPLOYMENT_NAME" != *-swc ]]; then
+            echo "deployment_name must end with -swc when deployment_location is swedencentral." >&2
+            exit 1
+          fi
+          if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then
+            echo "Set RUNNER_ALLOWED_PUBLIC_IP_CIDR as a variable on the dev GitHub Environment." >&2
+            exit 1
+          fi
+          if [[ ! "$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
+            exit 1
+          fi
+          jq -e 'type == "array" and all(.[]; type == "string")' <<< "$KEY_VAULT_VNET_RULE_SUBNET_IDS" >/dev/null
+
+      - name: Azure login with OIDC
+        uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check required Azure providers
+        run: |
+          set -euo pipefail
+          missing=0
+          for namespace in \
+            Microsoft.KeyVault \
+            Microsoft.Network
+          do
+            state="$(az provider show --namespace "$namespace" --query registrationState -o tsv)"
+            if [[ "$state" != "Registered" ]]; then
+              echo "$namespace is $state. Run apply once to register providers before what-if." >&2
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Restore Bicep modules
+        run: az bicep restore --file "$TEMPLATE_FILE"
+
+      - name: Build Bicep
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: Run subscription what-if
+        run: |
+          set -euo pipefail
+          az deployment sub what-if \
+            --name "$DEPLOYMENT_NAME" \
+            --location "$DEPLOYMENT_LOCATION" \
+            --template-file "$TEMPLATE_FILE" \
+            --parameters runnerAllowedPublicIp="$RUNNER_ALLOWED_PUBLIC_IP" \
+              keyVaultVirtualNetworkRuleSubnetIds="$KEY_VAULT_VNET_RULE_SUBNET_IDS"
+
+  apply:
+    name: Azure Persistent Apply
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'apply'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      RUNNER_ALLOWED_PUBLIC_IP: ${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Validate bootstrap inputs
+        run: |
+          set -euo pipefail
+          if [[ "$DEPLOYMENT_LOCATION" == "swedencentral" && "$DEPLOYMENT_NAME" != *-swc ]]; then
+            echo "deployment_name must end with -swc when deployment_location is swedencentral." >&2
+            exit 1
+          fi
+          if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then
+            echo "Set RUNNER_ALLOWED_PUBLIC_IP_CIDR as a variable on the dev GitHub Environment." >&2
+            exit 1
+          fi
+          if [[ ! "$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
+            exit 1
+          fi
+          jq -e 'type == "array" and all(.[]; type == "string")' <<< "$KEY_VAULT_VNET_RULE_SUBNET_IDS" >/dev/null
+
+      - name: Azure login with OIDC
+        uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Register required Azure providers
+        run: |
+          set -euo pipefail
+          for namespace in \
+            Microsoft.KeyVault \
+            Microsoft.Network
+          do
+            az provider register --namespace "$namespace" --wait
+          done
+
+      - name: Restore Bicep modules
+        run: az bicep restore --file "$TEMPLATE_FILE"
+
+      - name: Build Bicep
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: Run subscription deployment
+        run: |
+          set -euo pipefail
+          az deployment sub create \
+            --name "$DEPLOYMENT_NAME" \
+            --location "$DEPLOYMENT_LOCATION" \
+            --template-file "$TEMPLATE_FILE" \
+            --parameters runnerAllowedPublicIp="$RUNNER_ALLOWED_PUBLIC_IP" \
+              keyVaultVirtualNetworkRuleSubnetIds="$KEY_VAULT_VNET_RULE_SUBNET_IDS"

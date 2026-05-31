@@ -6,9 +6,9 @@ This plan follows `instructuctions/PLAN.md` in this repository. A future agent s
 
 ## Purpose / Big Picture
 
-After this change, the repository will no longer be only an architecture scaffold. A repository owner will be able to manually run guarded GitHub Actions workflows from a self-hosted runner to deploy a real Azure hub-spoke foundation in `swedencentral`. The public hostname `api.consultwithcloud.com` will terminate at Application Gateway WAF, re-encrypt to a private APIM Premium v2 gateway, and emit diagnostics to Log Analytics.
+After this change, the repository will no longer be only an architecture scaffold. A repository owner will be able to manually run guarded GitHub Actions workflows from a self-hosted runner to deploy a real Azure hub-spoke foundation in `swedencentral`. The public hostname `api.lab.consultwithcloud.com` will terminate at Application Gateway WAF, re-encrypt to a private APIM Premium v2 gateway, and emit diagnostics to Log Analytics.
 
-The observable result is a successful Bicep build, a subscription-scope Azure what-if showing the expected hub and spoke resources, and after apply plus certificate import, a healthy Application Gateway backend to APIM and usable DNS for `api.consultwithcloud.com`.
+The observable result is a successful Bicep build, a subscription-scope Azure what-if showing the expected shared, hub, and spoke resources, and after apply plus certificate import, a healthy Application Gateway backend to APIM and usable DNS for `api.lab.consultwithcloud.com`.
 
 ## Progress
 
@@ -23,6 +23,7 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
 - [x] (2026-05-30) Updated README and infra README with run instructions and warnings.
 - [x] (2026-05-30) Validated Bicep build and documentation formatting.
 - [x] (2026-05-31) Added the future `lab.consultwithcloud.com` public DNS child zone and name server deployment output.
+- [x] (2026-05-31) Moved retained Key Vault and public DNS into `rg-cwc-ai-gw-shared-swc-001` through a create/update-only persistent bootstrap workflow.
 
 ## Surprises & Discoveries
 
@@ -59,7 +60,7 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
   Date/Author: 2026-05-27 / Codex and user.
 
 - Decision: Put Application Gateway WAF v2 in front of APIM.
-  Rationale: APIM gateway is private, but `api.consultwithcloud.com` must be publicly reachable.
+  Rationale: APIM gateway is private, but `api.lab.consultwithcloud.com` must be publicly reachable.
   Date/Author: 2026-05-27 / Codex and user.
 
 - Decision: Manage APIM through Azure portal, ARM, and GitHub Actions only.
@@ -90,6 +91,10 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
   Rationale: The lab needs a safe teardown path that deletes only the known lab resource groups and runner-side peerings without adopting deployment stacks.
   Date/Author: 2026-05-30 / Codex and user.
 
+- Decision: Keep Key Vault and the lab public DNS zone in a separate retained shared resource group.
+  Rationale: Destroying the ephemeral hub and spoke should not delete `kv-cwc-aigw-shr-swc-001`, `lab.consultwithcloud.com`, or the manual Cloudflare delegation needed for repeat deployments.
+  Date/Author: 2026-05-31 / Codex and user.
+
 ## Outcomes & Retrospective
 
 The first implementation pass created the subscription-scope Bicep entry point, resource-group-scoped hub and spoke modules, runner peering module, guarded deployment workflow, guarded certificate workflow, and deployment runbook documentation. Local validation completed for Bicep build, workflow guardrails, Markdown linting, whitespace, workflow trigger search, and secret-pattern search.
@@ -104,7 +109,8 @@ The repository already has placeholder workflow files under `.github/workflows/`
 
 Important terms:
 
-- Hub VNet: the central Azure virtual network that contains shared services such as firewall, APIM, Application Gateway, DNS support, Key Vault, ACR, and Log Analytics.
+- Persistent shared resource group: `rg-cwc-ai-gw-shared-swc-001`, which contains retained Key Vault `kv-cwc-aigw-shr-swc-001` and public DNS zone `lab.consultwithcloud.com`.
+- Hub VNet: the central Azure virtual network that contains shared services such as firewall, APIM, Application Gateway, DNS support, ACR, and Log Analytics.
 - Spoke VNet: the workload virtual network that contains subnets for future applications and AKS.
 - VNet peering: an Azure connection between two virtual networks. It is not transitive, so if A peers to B and B peers to C, A does not automatically reach C.
 - APIM: Azure API Management. In this plan it is the API gateway service.
@@ -119,7 +125,9 @@ Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Ad
 
 Create a module folder under `infra/bicep/modules/`. Use Azure Verified Modules for resource types where the module is available, works cleanly, and can be pinned to an explicit version. Use raw Bicep for VNet peerings, route tables, diagnostic settings, DNS records, and other cross-resource wiring where raw resources are clearer.
 
-Implement the hub module first. It must deploy the hub VNet and subnets, Azure Firewall Standard and Firewall Policy, Log Analytics workspace, Key Vault, ACR, Application Gateway WAF, APIM Premium v2, public DNS zone, private DNS for APIM gateway resolution, identities, role assignments, and diagnostic settings. The deployment admin group receives Key Vault Administrator at the lab vault scope and AcrPush at the lab ACR scope. The workflow identity must already have management-plane permission to create role assignments before the template can create these assignments.
+Implement the persistent bootstrap first. It must deploy retained resource group `rg-cwc-ai-gw-shared-swc-001`, Key Vault `kv-cwc-aigw-shr-swc-001`, and public DNS zone `lab.consultwithcloud.com`. It is create/update only and has no destroy mode.
+
+Implement the hub module next. It must deploy the hub VNet and subnets, Azure Firewall Standard and Firewall Policy, Log Analytics workspace, ACR, Application Gateway WAF, APIM Premium v2, private DNS for APIM gateway resolution, identities, role assignments, and diagnostic settings. It references the shared Key Vault and public DNS zone as existing resources. The deployment admin group receives Key Vault Administrator at the shared vault scope and AcrPush at the lab ACR scope. The workflow identity must already have management-plane permission to create role assignments before the template can create these assignments.
 
 Implement the spoke module second. It must deploy the spoke VNet and subnets, route tables for `snet-workload` and `snet-aks`, and spoke-side diagnostic-ready tags. It must not deploy AKS.
 
@@ -127,7 +135,7 @@ Implement peerings after both VNets exist. Add bidirectional peering for hub-spo
 
 Add `infra-deploy.yml` as a guarded manual workflow. It must accept `mode` as `validate`, `what-if`, or `apply`. It must run on the `consultwithcloud-azure` runner group with the `[gh-linux]` label, use SHA-pinned OIDC Azure login, restore and build Bicep, and only run what-if or apply after the actor, literal repository, branch, and fixed `dev` environment approval checks pass. The apply job registers required Azure providers. The what-if job only verifies provider registration state before running what-if.
 
-Add `certificate-issue.yml` as a separate guarded manual workflow. It runs after initial infrastructure exists. It must create the ACME DNS-01 challenge in the Azure DNS child zone, issue a Let's Encrypt certificate for `api.consultwithcloud.com`, and import it into Key Vault as `cert-api-consultwithcloud-com`. Do not commit certificate files or ACME secrets.
+Add `certificate-issue.yml` as a separate guarded manual workflow. It runs after persistent bootstrap creates the Azure DNS child zone and shared Key Vault. It must create ACME DNS-01 challenges in `lab.consultwithcloud.com`, issue a Let's Encrypt SAN certificate for the lab hostnames, and import it into Key Vault using the confirmed certificate object name. Do not commit certificate files or ACME secrets.
 
 Update `README.md` and `infra/bicep/README.md`. The README must warn that APIM body logging is enabled and can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data. The infra README must describe the staged deployment: initial infrastructure, certificate issuance, public edge and DNS alias, then APIM custom domain binding after DNS resolution is visible.
 
@@ -178,7 +186,7 @@ Run apply only after reviewing what-if:
 
 After phase one, capture the `labPublicDnsZoneNameServers` deployment output and create `NS` records for child name `lab` in the Cloudflare-managed parent zone `consultwithcloud.com`. This delegates `lab.consultwithcloud.com` for future full demo hostnames only. It does not create records for `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, or `argo.lab.consultwithcloud.com`.
 
-For the current edge path, delegate the existing `api.consultwithcloud.com` DNS child zone from the parent DNS host before running the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
+For the current edge path, do not create a public DNS zone for `api.consultwithcloud.com`. Delegate `lab.consultwithcloud.com` from the parent DNS host before production certificate issuance. The certificate workflow imports a PFX certificate into the shared Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution for `api.lab.consultwithcloud.com` is visible, re-run with both values set to `true`.
 
 For the guarded workflow path, set `RUNNER_ALLOWED_PUBLIC_IP_CIDR` as a variable on the `dev` GitHub Environment. The workflow passes that value to the Bicep `runnerAllowedPublicIp` parameter so operators do not type the runner NAT CIDR for every run.
 
@@ -209,7 +217,7 @@ Azure validation after apply:
 - The hub and spoke resource groups exist in `swedencentral`.
 - The hub, spoke, and runner VNets have bidirectional peerings.
 - Application Gateway frontend public IP exists.
-- Public DNS zone `api.consultwithcloud.com` exists and has an alias `A` record to the Application Gateway public IP.
+- Public DNS zone `lab.consultwithcloud.com` exists and has an `api` alias `A` record to the Application Gateway public IP.
 - Public DNS zone `lab.consultwithcloud.com` exists and `labPublicDnsZoneNameServers` lists the Azure DNS name servers required for Cloudflare delegation.
 - APIM Premium v2 exists with a private gateway and one unit.
 - Key Vault has purge protection enabled.
@@ -224,7 +232,7 @@ Azure validation after apply:
 
 End-to-end acceptance after certificate and DNS:
 
-    curl -i https://api.consultwithcloud.com/status-0123456789abcdef
+    curl -i https://api.lab.consultwithcloud.com/status-0123456789abcdef
 
 Expected result is HTTP 200 with APIM service health content. If the public DNS child zone is not delegated yet, use in-network DNS or host-file validation from a connected test host and document the limitation.
 
@@ -234,17 +242,18 @@ Bicep deployments must be incremental and safe to rerun. Re-running the validate
 
 If certificate issuance fails, leave infrastructure intact. Remove only temporary ACME challenge DNS records created by the workflow, then rerun the certificate workflow.
 
-If APIM custom domain binding fails because the certificate or public DNS is not ready, rerun the infrastructure deployment with `enablePublicEdge = true` and `enableCustomDomain = false`, confirm the certificate workflow has imported `cert-api-consultwithcloud-com`, confirm public DNS resolution, then rerun with both values set to `true`.
+If APIM custom domain binding fails because the certificate or public DNS is not ready, rerun the infrastructure deployment with `enablePublicEdge = true` and `enableCustomDomain = false`, confirm the certificate workflow has imported the confirmed lab SAN certificate object name, confirm public DNS resolution, then rerun with both values set to `true`.
 
 If WAF Prevention blocks legitimate APIM traffic, inspect Application Gateway WAF logs in Log Analytics and add narrow exclusions only for the specific rule, request component, and hostname required. Do not disable WAF globally.
 
 If cleanup is needed, use `.github/workflows/infra-destroy.yml`. Preview mode
 lists the runner-side peerings and lab resource groups, and destroy mode
-requires the exact confirmation phrase before it removes the runner-side
-peerings and deletes the hub and spoke resource groups. Key Vault purge
-protection means the deleted vault is not purged and the vault name may remain
-reserved until the retention period expires. Parent DNS delegation is outside
-the workflow and may need manual cleanup.
+requires the exact confirmation phrase `destroy` before it removes the
+runner-side peerings and deletes the hub and spoke resource groups. It retains
+`rg-cwc-ai-gw-shared-swc-001`, `kv-cwc-aigw-shr-swc-001`,
+`lab.consultwithcloud.com`, and manual Cloudflare delegation. It then purges
+soft-deleted APIM service `apim-cwc-ai-gw-swc-001` in `swedencentral`; APIM
+purge is permanent.
 
 ## Artifacts and Notes
 
@@ -268,7 +277,8 @@ Resource naming:
     afwp-cwc-ai-gw-swc-001
     log-cwc-ai-gw-swc-001
     acrcwcaigwswc001
-    kv-cwc-ai-gw-swc-001
+    rg-cwc-ai-gw-shared-swc-001
+    kv-cwc-aigw-shr-swc-001
     apim-cwc-ai-gw-swc-001
     agw-cwc-ai-gw-swc-001
     pip-agw-cwc-ai-gw-swc-001

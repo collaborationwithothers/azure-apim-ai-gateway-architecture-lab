@@ -11,13 +11,23 @@ else
   az bicep build --file "$repo_root/infra/bicep/main.bicep" --outfile "$compiled_template"
 fi
 
-if ! grep -q '"labPublicDnsZoneName": "lab.consultwithcloud.com"' "$compiled_template"; then
+if ! jq -e '.parameters.labDnsZoneName.defaultValue == "lab.consultwithcloud.com"' "$compiled_template" >/dev/null; then
   echo "Compiled template is missing the lab.consultwithcloud.com public DNS zone name." >&2
   exit 1
 fi
 
-if ! grep -q '"labPublicDnsZoneNameServers"' "$compiled_template"; then
+if ! jq -e '.outputs | has("labPublicDnsZoneNameServers")' "$compiled_template" >/dev/null; then
   echo "Compiled template is missing lab public DNS name server outputs." >&2
+  exit 1
+fi
+
+if ! jq -e '.outputs.labPublicDnsZoneName.value == "[parameters('\''labDnsZoneName'\'')]"' "$compiled_template" >/dev/null; then
+  echo "Compiled template must expose labPublicDnsZoneName from the labDnsZoneName parameter." >&2
+  exit 1
+fi
+
+if ! jq -e '.resources[] | select(.name == "hub-platform") | .properties.parameters.labPublicDnsZoneName.value == "[parameters('\''labDnsZoneName'\'')]"' "$compiled_template" >/dev/null; then
+  echo "Hub deployment must receive the lab public DNS zone from the labDnsZoneName parameter." >&2
   exit 1
 fi
 
@@ -26,7 +36,7 @@ if ! grep -q "br/public:avm/res/network/dns-zone:0.6.0" "$repo_root/infra/bicep/
   exit 1
 fi
 
-if rg -n "api\\.lab\\.consultwithcloud\\.com|app\\.lab\\.consultwithcloud\\.com|argo\\.lab\\.consultwithcloud\\.com|parent: labPublicDnsZone|labPublicDnsZone.*dnsZones/A" "$repo_root/infra/bicep" --glob "*.bicep"; then
+if jq -e '.. | objects | select((.type? == "Microsoft.Network/dnsZones/A") or (.type? == "Microsoft.Network/dnsZones/CNAME")) | select(.name? | tostring | test("labPublicDnsZoneName|labDnsZoneName|lab\\.consultwithcloud\\.com|/api|/app|/argo|api/|app/|argo/"))' "$compiled_template" >/dev/null; then
   echo "Issue 29 must not create lab.consultwithcloud.com DNS records or aliases." >&2
   exit 1
 fi

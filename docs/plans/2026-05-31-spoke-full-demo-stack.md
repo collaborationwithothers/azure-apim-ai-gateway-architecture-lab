@@ -55,6 +55,29 @@ subnet, and route table IDs as non-sensitive Bicep outputs. This prerequisite
 slice is contract-only. It must not deploy AKS, Redis, Foundry, Istio, Argo CD,
 private endpoints, GitOps resources, or application workloads.
 
+Issue #32 extends that prerequisite with a parameter and output contract only.
+It reserves the future lab DNS names and disabled-by-default feature flags for
+AKS, Redis, Foundry/model backend, GitOps, and BFF support. It also carries
+non-secret sizing and configuration placeholders so later implementation issues
+can add resources without changing the external deployment contract.
+
+The following decisions remain unresolved after issue #32:
+
+- Redis product choice.
+- model availability.
+- certificate name.
+- Argo SSO groups.
+- BFF app registration.
+
+Issue #29 remains the first implementation dependency because the
+`lab.consultwithcloud.com` public DNS zone must exist before later hostname,
+certificate, and listener work depends on it.
+
+AVM fit for issue #32 was checked against the AVM Bicep module index. No AVM or
+local resource module is added for issue #32 because this slice defines only
+parameters and non-sensitive outputs. Later resource slices must repeat the AVM
+fit check before adding resource modules.
+
 ## Implementation Changes
 
 - Expose the existing spoke VNet, workload subnet, private endpoint subnet, AKS

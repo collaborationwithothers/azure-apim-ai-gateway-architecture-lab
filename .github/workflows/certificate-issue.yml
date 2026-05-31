@@ -166,11 +166,16 @@ jobs:
               exit 1
               ;;
           esac
-          az network dns record-set txt remove-record \
+          if az network dns record-set txt show \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$dns_record_set_name" \
-            --value "$CERTBOT_VALIDATION" || true
+            --name "$dns_record_set_name" >/dev/null 2>&1; then
+            az network dns record-set txt remove-record \
+              --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+              --zone-name "$DNS_ZONE_NAME" \
+              --record-set-name "$dns_record_set_name" \
+              --value "$CERTBOT_VALIDATION" || true
+          fi
           SCRIPT
 
           chmod 700 "$auth_hook" "$cleanup_hook"
@@ -225,11 +230,16 @@ jobs:
           if [[ -f "$challenge_values" ]]; then
             while IFS="$(printf '\t')" read -r record_set value; do
               [[ -n "${record_set:-}" && -n "${value:-}" ]] || continue
-              az network dns record-set txt remove-record \
+              if az network dns record-set txt show \
                 --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
                 --zone-name "$DNS_ZONE_NAME" \
-                --record-set-name "$record_set" \
-                --value "$value" || true
+                --name "$record_set" >/dev/null 2>&1; then
+                az network dns record-set txt remove-record \
+                  --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+                  --zone-name "$DNS_ZONE_NAME" \
+                  --record-set-name "$record_set" \
+                  --value "$value" || true
+              fi
             done < "$challenge_values"
           fi
 

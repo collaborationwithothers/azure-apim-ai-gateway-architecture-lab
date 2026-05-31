@@ -125,35 +125,45 @@ publishing, ACR image build or push, image promotion, and lab SAN certificate
 issuance. Those workflows must stay manual-only and must not accept
 caller-controlled Azure target names.
 
-Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`.
+Use `.github/workflows/bootstrap-persistent.yml` first for create/update of the
+retained shared resources. It creates `rg-cwc-ai-gw-shared-swc-001`, Key Vault
+`kv-cwc-aigw-shr-swc-001`, and the `lab.consultwithcloud.com` Azure DNS public
+child zone. The bootstrap workflow has only `validate`, `what-if`, and `apply`
+modes. It has no destroy mode.
+
+Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`
+of the ephemeral hub and spoke platform.
 The workflow reads the runner NAT CIDR from the `RUNNER_ALLOWED_PUBLIC_IP_CIDR`
 variable on the `dev` GitHub Environment. It accepts the remaining non-secret
 deployment inputs directly, including `enable_public_edge`,
 `enable_custom_domain`, and `deployment_name`. The lab Key Vault certificate
 secret URI must be supplied only after `cert-lab-consultwithcloud-com` exists.
-The Bicep deployment assigns the permanent deployment admin group Key Vault
-Administrator on the lab vault and AcrPush on the lab registry. The workflow
-identity must already have the management-plane permissions needed to create
-role assignments.
-The initial infrastructure deployment also creates the
-`lab.consultwithcloud.com` Azure DNS public child zone. Copy the
-`labPublicDnsZoneNameServers` output into Cloudflare as `NS` records for the
-`lab` subdomain of `consultwithcloud.com`. This Cloudflare delegation prepares
+The Bicep deployment references the persistent shared Key Vault and public DNS
+zone as existing resources, assigns the permanent deployment admin group Key
+Vault Administrator on the shared vault and AcrPush on the lab registry, and
+assigns APIM and Application Gateway certificate read access on the shared
+vault. The workflow identity must already have the management-plane permissions
+needed to create role assignments.
+Copy the `labPublicDnsZoneNameServers` output from the bootstrap or main
+deployment into Cloudflare as `NS` records for the `lab` subdomain of
+`consultwithcloud.com`. This Cloudflare delegation prepares
 the `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, and
 `argo.lab.consultwithcloud.com` hostnames; it does not issue certificates or
 change APIM custom-domain binding.
-Use `.github/workflows/certificate-issue.yml` only after phase 1 has created the
-Azure DNS child zone and Key Vault. The certificate workflow performs Let's Encrypt
-ACME DNS-01 issuance and imports a PFX certificate into Key Vault for
-Application Gateway TLS termination as `cert-lab-consultwithcloud-com`. APIM
-custom domain binding remains a separate later infrastructure step. The
-deployment is two-phase:
+Use `.github/workflows/certificate-issue.yml` only after the bootstrap workflow
+has created the Azure DNS child zone and Key Vault. The certificate workflow
+performs Let's Encrypt ACME DNS-01 issuance and imports a PFX certificate into
+Key Vault as `cert-lab-consultwithcloud-com` for Application Gateway TLS
+termination. APIM custom domain binding remains a separate later infrastructure
+step. The deployment is staged:
 
-1. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
-2. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
-3. After parent-zone delegation is in place, run the certificate workflow in staging mode.
-4. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
-5. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
+1. Run persistent bootstrap in `apply` mode.
+2. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
+3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
+4. Rerun persistent bootstrap in `apply` mode with the hub Application Gateway and APIM subnet IDs in `key_vault_virtual_network_rule_subnet_ids`.
+5. After parent-zone delegation is in place, run the certificate workflow in staging mode.
+6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
+7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
 
 Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in
 use. The workflow is manual and destructive. Preview mode lists the runner-side
@@ -162,10 +172,13 @@ the exact confirmation phrase, removes the runner-side peerings, and deletes
 only `rg-cwc-ai-gw-hub-swc-001` and `rg-cwc-ai-gw-spoke-swc-001`.
 
 The destroy workflow does not delete the runner VNet, runner resource group,
-parent DNS delegation, subscription deployment history, or unrelated resources.
-Key Vault purge protection may keep the deleted vault name reserved after
-cleanup. Parent DNS delegation for `lab.consultwithcloud.com` may need manual
-cleanup outside this workflow.
+parent DNS delegation, subscription deployment history, the shared resource
+group `rg-cwc-ai-gw-shared-swc-001`, shared Key Vault
+`kv-cwc-aigw-shr-swc-001`, or the `lab.consultwithcloud.com` public DNS zone.
+Cloudflare delegation for `lab.consultwithcloud.com` is retained because it is a
+manual parent-zone step. Destroy mode uses the exact confirmation phrase
+`destroy` and then purges soft-deleted APIM service `apim-cwc-ai-gw-swc-001` in
+`swedencentral`. APIM purge is permanent.
 
 ## Demo roadmap
 

@@ -100,9 +100,36 @@ EOF
     /tmp/doc-consistency-design.out
 }
 
+expect_failure_for_missing_persistent_lifecycle_text() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  mkdir -p "$dir/infra/bicep" "$dir/docs/plans"
+  cat >"$dir/infra/bicep/README.md" <<'EOF'
+# Hub-Spoke Bicep Deployment
+EOF
+  cat >"$dir/requirements/001-hub-spoke-apim-edge-platform.md" <<'EOF'
+# Hub-Spoke APIM Edge Platform
+swedencentral
+EOF
+  cat >"$dir/design-log/001-hub-spoke-apim-edge-platform.md" <<'EOF'
+# Design Log #001: Hub-Spoke APIM Edge Platform
+swedencentral
+EOF
+  cat >"$dir/docs/plans/2026-05-31-spoke-full-demo-stack.md" <<'EOF'
+# Plan
+EOF
+  if "$validator" --root "$dir" >/tmp/doc-consistency-lifecycle.out 2>&1; then
+    echo "expected missing persistent lifecycle text to fail" >&2
+    return 1
+  fi
+  grep -q "rg-cwc-ai-gw-shared-swc-001" /tmp/doc-consistency-lifecycle.out
+}
+
 expect_success
 expect_failure_for_missing_scenario_row
 expect_failure_for_missing_requirement_index_entry
 expect_failure_for_missing_design_log_index_entry
+expect_failure_for_missing_persistent_lifecycle_text
 
 echo "validate-doc-consistency tests passed"

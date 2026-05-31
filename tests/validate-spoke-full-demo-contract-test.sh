@@ -134,7 +134,7 @@ required_docs=(
   'certificate name'
   'Argo SSO groups'
   'BFF app registration'
-  'Issue #29 remains the first implementation dependency'
+  'persistent bootstrap slice is the first implementation dependency'
   'AVM fit for issue #32'
 )
 

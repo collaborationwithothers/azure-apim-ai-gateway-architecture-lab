@@ -3,45 +3,6 @@ targetScope = 'resourceGroup'
 param location string
 param tags object
 param runnerAllowedPublicIp string
-param appGwSubnetId string
-param apimSubnetId string
-
-var keyVaultName = 'kv-cwc-ai-gw-swc-001'
-
-resource keyVault 'Microsoft.KeyVault/vaults@2024-11-01' = {
-  name: keyVaultName
-  location: location
-  tags: tags
-  properties: {
-    tenantId: tenant().tenantId
-    sku: {
-      family: 'A'
-      name: 'standard'
-    }
-    enableRbacAuthorization: true
-    enableSoftDelete: true
-    softDeleteRetentionInDays: 90
-    enablePurgeProtection: true
-    publicNetworkAccess: 'Enabled'
-    networkAcls: {
-      bypass: 'AzureServices'
-      defaultAction: 'Deny'
-      ipRules: [
-        {
-          value: runnerAllowedPublicIp
-        }
-      ]
-      virtualNetworkRules: [
-        {
-          id: appGwSubnetId
-        }
-        {
-          id: apimSubnetId
-        }
-      ]
-    }
-  }
-}
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = {
   name: 'acrcwcaigwswc001'
@@ -72,8 +33,6 @@ resource appGwIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01
   tags: tags
 }
 
-output keyVaultName string = keyVault.name
-output keyVaultId string = keyVault.id
 output acrName string = acr.name
 output acrId string = acr.id
 output appGwIdentityId string = appGwIdentity.id

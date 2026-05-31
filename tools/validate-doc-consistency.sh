@@ -124,10 +124,53 @@ check_known_values() {
     "${search_dirs[@]}" 2>/dev/null || true)
 }
 
+require_literal_if_file_exists() {
+  local path="$1"
+  local literal="$2"
+
+  [[ -f "$root/$path" ]] || return 0
+  if ! grep -qF "$literal" "$root/$path"; then
+    fail "$path is missing required text: $literal"
+  fi
+}
+
+reject_literal_if_file_exists() {
+  local path="$1"
+  local literal="$2"
+
+  [[ -f "$root/$path" ]] || return 0
+  if grep -qF "$literal" "$root/$path"; then
+    fail "$path must not contain stale text: $literal"
+  fi
+}
+
+check_persistent_lifecycle_docs() {
+  [[ -f "$root/infra/bicep/README.md" || -f "$root/requirements/001-hub-spoke-apim-edge-platform.md" ]] || return 0
+
+  for path in \
+    README.md \
+    infra/bicep/README.md \
+    requirements/001-hub-spoke-apim-edge-platform.md \
+    design-log/001-hub-spoke-apim-edge-platform.md \
+    docs/plans/2026-05-31-spoke-full-demo-stack.md; do
+    require_literal_if_file_exists "$path" "rg-cwc-ai-gw-shared-swc-001"
+    require_literal_if_file_exists "$path" "kv-cwc-aigw-shr-swc-001"
+    require_literal_if_file_exists "$path" "lab.consultwithcloud.com"
+  done
+
+  require_literal_if_file_exists "README.md" "confirmation phrase"
+  require_literal_if_file_exists "README.md" "destroy"
+  require_literal_if_file_exists "README.md" "APIM purge is permanent"
+  require_literal_if_file_exists "infra/bicep/README.md" "APIM purge is permanent"
+  require_literal_if_file_exists "requirements/001-hub-spoke-apim-edge-platform.md" 'No public DNS zone is created for `api.consultwithcloud.com`'
+  require_literal_if_file_exists "design-log/001-hub-spoke-apim-edge-platform.md" 'There is no public DNS zone for `api.consultwithcloud.com`'
+}
+
 check_scenario_table
 check_numbered_index "requirements" "requirements/index.md" "requirements"
 check_numbered_index "design-log" "design-log/index.md" "design logs"
 check_known_values
+check_persistent_lifecycle_docs
 
 if [[ "$errors" -gt 0 ]]; then
   echo

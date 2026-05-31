@@ -24,11 +24,11 @@ Argo CD is exposed at `argo.lab.consultwithcloud.com` behind Application Gateway
 
 ## Key Decisions
 
-- Replace the current `api.consultwithcloud.com` DNS assumption with delegated public zone `lab.consultwithcloud.com`.
+- Use delegated public zone `lab.consultwithcloud.com`; do not create a public DNS zone for `api.consultwithcloud.com`.
 - Use public hostnames `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, and `argo.lab.consultwithcloud.com`.
 - Use one Let's Encrypt SAN certificate for the three public lab hostnames and store it in Key Vault.
 - Add spoke resources for AKS, Redis, Foundry project resources, model deployments, private endpoints, private DNS links, and BFF app support.
-- Keep shared Key Vault, ACR, Log Analytics, APIM, Application Gateway, and Azure Firewall in the hub unless a service requires spoke placement.
+- Keep the shared Key Vault and public DNS zone in `rg-cwc-ai-gw-shared-swc-001`; keep ACR, Log Analytics, APIM, Application Gateway, and Azure Firewall in the hub unless a service requires spoke placement.
 - Use Azure CNI Overlay plus `userDefinedRouting` so AKS egress follows the existing hub firewall pattern.
 - Use the lowest-cost AKS posture, but document reduced availability and add manual stop/start plus destroy workflows for cost control.
 - Use upstream Istio installed by Helm, with an internal Azure Load Balancer for Istio ingress.
@@ -69,9 +69,10 @@ The following decisions remain unresolved after issue #32:
 - Argo SSO groups.
 - BFF app registration.
 
-Issue #29 remains the first implementation dependency because the
+The persistent bootstrap slice remains the first implementation dependency
+because `rg-cwc-ai-gw-shared-swc-001`, `kv-cwc-aigw-shr-swc-001`, and the
 `lab.consultwithcloud.com` public DNS zone must exist before later hostname,
-certificate, and listener work depends on it.
+certificate, and listener work depends on them.
 
 Issue #33 moves the active public API hostname contract to
 `api.lab.consultwithcloud.com`, keeps `lab.consultwithcloud.com` as the DNS

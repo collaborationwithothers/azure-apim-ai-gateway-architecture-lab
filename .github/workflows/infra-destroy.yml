@@ -30,7 +30,12 @@ env:
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-swc-001 rg-cwc-ai-gw-spoke-swc-001
+  PERSISTENT_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-shared-swc-001
+  PERSISTENT_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+  LAB_PUBLIC_DNS_ZONE_NAME: lab.consultwithcloud.com
+  APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001
+  APIM_LOCATION: swedencentral
+  CONFIRM_DESTROY_PHRASE: destroy
 
 jobs:
   preview:
@@ -56,6 +61,13 @@ jobs:
           echo "Lab resource groups to delete:"
           echo "- ${HUB_RESOURCE_GROUP_NAME}"
           echo "- ${SPOKE_RESOURCE_GROUP_NAME}"
+          echo "Soft-deleted APIM instance to purge after resource group deletion:"
+          echo "- ${APIM_SERVICE_NAME} in ${APIM_LOCATION}"
+          echo "Persistent resources retained:"
+          echo "- ${PERSISTENT_RESOURCE_GROUP_NAME}"
+          echo "- ${PERSISTENT_KEY_VAULT_NAME}"
+          echo "- ${LAB_PUBLIC_DNS_ZONE_NAME}"
+          echo "- Cloudflare delegation for ${LAB_PUBLIC_DNS_ZONE_NAME}"
           echo "This workflow does not delete the runner resource group, runner VNet, parent DNS zone, or subscription deployment history."
 
   destroy:
@@ -125,3 +137,21 @@ jobs:
               echo "Resource group already absent: $resource_group"
             fi
           done
+
+      - name: Purge soft-deleted APIM service
+        run: |
+          set -euo pipefail
+          echo "Persistent resources retained:"
+          echo "- ${PERSISTENT_RESOURCE_GROUP_NAME}"
+          echo "- ${PERSISTENT_KEY_VAULT_NAME}"
+          echo "- ${LAB_PUBLIC_DNS_ZONE_NAME}"
+          echo "- Cloudflare delegation for ${LAB_PUBLIC_DNS_ZONE_NAME}"
+          if az apim deletedservice show \
+            --service-name "$APIM_SERVICE_NAME" \
+            --location "$APIM_LOCATION" >/dev/null 2>&1; then
+            az apim deletedservice purge \
+              --service-name "$APIM_SERVICE_NAME" \
+              --location "$APIM_LOCATION"
+          else
+            echo "Soft-deleted APIM service already absent: ${APIM_SERVICE_NAME} in ${APIM_LOCATION}"
+          fi

@@ -36,8 +36,8 @@ if ! jq -e '.variables.publicHostname == "[parameters('\''apiLabHostname'\'')]" 
   exit 1
 fi
 
-if ! jq -e '.resources[] | select(.name == "hub-platform") | .properties.parameters.labPublicDnsZoneName.value == "[parameters('\''labDnsZoneName'\'')]"' "$compiled_template" >/dev/null; then
-  echo "Hub deployment must receive the lab public DNS zone from the labDnsZoneName parameter." >&2
+if ! jq -e '.resources[] | select(.name == "shared-public-dns") | .resourceGroup == "[parameters('\''sharedResourceGroupName'\'')]"' "$compiled_template" >/dev/null; then
+  echo "Shared public DNS deployment must target the persistent shared resource group." >&2
   exit 1
 fi
 
@@ -46,22 +46,27 @@ if ! jq -e '.resources[] | select(.name == "hub-platform") | .properties.paramet
   exit 1
 fi
 
-if ! jq -e '.resources[] | select(.name == "hub-platform") | .properties.parameters.publicDnsRecordName.value == "[variables('\''apiLabDnsRecordName'\'')]"' "$compiled_template" >/dev/null; then
-  echo "Hub deployment must receive the api DNS record label separately from the lab DNS zone." >&2
+if ! jq -e '.resources[] | select(.name == "shared-public-dns") | .properties.parameters.labPublicDnsZoneName.value == "[parameters('\''labDnsZoneName'\'')]"' "$compiled_template" >/dev/null; then
+  echo "Shared public DNS deployment must receive the lab public DNS zone from the labDnsZoneName parameter." >&2
   exit 1
 fi
 
-if ! grep -q "br/public:avm/res/network/dns-zone:0.6.0" "$repo_root/infra/bicep/modules/hub-edge.bicep"; then
-  echo "The lab public DNS zone must use the pinned AVM public DNS zone module." >&2
+if ! jq -e '.resources[] | select(.name == "shared-public-dns") | .properties.parameters.publicDnsRecordName.value == "[variables('\''apiLabDnsRecordName'\'')]"' "$compiled_template" >/dev/null; then
+  echo "Shared public DNS deployment must receive the api DNS record label separately from the lab DNS zone." >&2
   exit 1
 fi
 
-if ! grep -q "resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing" "$repo_root/infra/bicep/modules/hub-edge.bicep"; then
+if ! grep -q "br/public:avm/res/network/dns-zone:0.6.0" "$repo_root/infra/bicep/persistent.bicep"; then
+  echo "The lab public DNS zone must use the pinned AVM public DNS zone module in persistent bootstrap." >&2
+  exit 1
+fi
+
+if ! grep -q "resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing" "$repo_root/infra/bicep/modules/shared-public-dns.bicep"; then
   echo "The lab DNS A record must attach to the lab DNS zone instead of creating a hostname zone." >&2
   exit 1
 fi
 
-if ! grep -q "name: publicDnsRecordName" "$repo_root/infra/bicep/modules/hub-edge.bicep"; then
+if ! grep -q "name: publicDnsRecordName" "$repo_root/infra/bicep/modules/shared-public-dns.bicep"; then
   echo "The API public DNS record must use an explicit record-name parameter under lab.consultwithcloud.com." >&2
   exit 1
 fi

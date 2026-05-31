@@ -51,7 +51,8 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 - Azure Firewall Standard, Firewall Policy, public IP, and structured diagnostics.
 - Application Gateway WAF v2 in Prevention mode.
 - APIM Premium v2 with VNet injection in the hub.
-- Public DNS child zone `api.consultwithcloud.com`.
+- Public DNS child zone `api.consultwithcloud.com` for the current edge path.
+- Public DNS child zone `lab.consultwithcloud.com` for future full demo hostnames.
 - Key Vault Standard with soft delete and purge protection.
 - Let's Encrypt certificate issuance workflow using ACME DNS-01 and Key Vault import.
 - ACR Premium with admin user disabled, diagnostics, and public IP firewall restriction.
@@ -229,6 +230,8 @@ Rationale: Public clients resolve Application Gateway, while Application Gateway
 Acceptance criteria:
 
 - Public DNS child zone `api.consultwithcloud.com` exists in Azure DNS.
+- Public DNS child zone `lab.consultwithcloud.com` exists in Azure DNS for future full demo hostnames.
+- The deployment outputs the Azure DNS name servers required to delegate `lab.consultwithcloud.com` from Cloudflare.
 - Apex `A` record in that child zone is an alias to the Application Gateway public IP.
 - A private DNS zone or equivalent private record maps APIM gateway hostname to the APIM private IP and is linked to the hub VNet.
 - No Azure DNS Private Resolver is deployed.
@@ -392,7 +395,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 - The deployment identity can be granted `Contributor` at subscription scope and an additional role assignment-capable role where needed before the template creates scoped role assignments.
 - The existing self-hosted runner is reachable through the runner VNet and has Azure CLI, Bicep, and required certificate tooling installed or installable.
-- The parent DNS zone `consultwithcloud.com` can delegate `api.consultwithcloud.com` to Azure DNS name servers.
+- The parent DNS zone `consultwithcloud.com` can delegate `api.consultwithcloud.com` and `lab.consultwithcloud.com` to Azure DNS name servers.
 - APIM Premium v2 capacity and the required Azure OpenAI model quota are available in `swedencentral` at deployment time.
 
 ## Sources
@@ -408,6 +411,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 - [Azure Firewall structured logs](https://learn.microsoft.com/en-us/azure/firewall/firewall-structured-logs)
 - [Azure VNet peering overview](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-peering-overview)
 - [Azure DNS alias records](https://learn.microsoft.com/en-us/azure/dns/dns-alias)
+- [Delegate a domain to Azure DNS](https://learn.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns)
 - [Key Vault soft delete overview](https://learn.microsoft.com/en-us/azure/key-vault/general/soft-delete-overview)
 - [ACR authentication options](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication)
 - [Deploy Bicep with GitHub Actions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deploy-github-actions)

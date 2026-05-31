@@ -15,7 +15,7 @@
 | `hub-security.bicep` | Key Vault, ACR, Application Gateway managed identity, and runner IP network restrictions. |
 | `hub-firewall.bicep` | Firewall Policy, Azure Firewall public IP, and Azure Firewall. |
 | `hub-apim.bicep` | APIM Premium v2, APIM Azure Monitor diagnostic configuration, private DNS zone, hub VNet link, and private APIM A record. |
-| `hub-edge.bicep` | WAF policy, Application Gateway public IP, public DNS child zone, Application Gateway, and public DNS alias. |
+| `hub-edge.bicep` | WAF policy, Application Gateway public IP, current and future public DNS child zones, Application Gateway, and public DNS alias. |
 | `hub-rbac.bicep` | Key Vault and ACR role assignments for deployment administrators, APIM, and Application Gateway. |
 | `hub-diagnostics.bicep` | Azure Monitor diagnostic settings for hub resources. |
 
@@ -46,9 +46,35 @@ The template creates these resource groups in `swedencentral`:
 
 The existing runner VNet is referenced, not recreated, in `rg-dv-gh-actions-neu`.
 
+## Public DNS Zones
+
+The template creates two Azure DNS public child zones:
+
+- `api.consultwithcloud.com` for the current APIM edge path.
+- `lab.consultwithcloud.com` for the future full demo stack hostnames.
+
+The `lab.consultwithcloud.com` zone is created before certificates, APIM custom
+domain binding, or Application Gateway listener changes depend on it. It has no
+records in this slice. Use the `labPublicDnsZoneNameServers` deployment output
+to create `NS` records for `lab` in Cloudflare, which owns the parent
+`consultwithcloud.com` zone. Cloudflare delegation is an operator action and is
+not performed by Bicep.
+
+Future issues will add records and bindings for:
+
+- `api.lab.consultwithcloud.com`
+- `app.lab.consultwithcloud.com`
+- `argo.lab.consultwithcloud.com`
+
 ## Deployment Flow
 
 Run phase 1 with `enablePublicEdge = false` and `enableCustomDomain = false`. This creates the hub and spoke foundations, DNS child zone, Key Vault, APIM, Log Analytics, ACR, Firewall, and peerings without binding the certificate-dependent edge resources.
+
+After phase 1 completes, copy the `labPublicDnsZoneNameServers` output and add
+those name servers as `NS` records for `lab` in the Cloudflare
+`consultwithcloud.com` zone. This prepares the future full demo hostnames only;
+it does not issue a certificate, bind an APIM custom domain, or add Application
+Gateway listeners for the `lab.consultwithcloud.com` names.
 
 After phase 1 completes, delegate the parent DNS zone `consultwithcloud.com` so `api.consultwithcloud.com` uses the Azure DNS name servers created in the child zone. Then run `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT records and import the Let's Encrypt certificate into Key Vault as `cert-api-consultwithcloud-com`. The certificate workflow imports a PFX file because Application Gateway TLS termination requires PFX certificates in Key Vault.
 
@@ -124,6 +150,14 @@ For phase 2, set `enablePublicEdge=true` after `cert-api-consultwithcloud-com` e
 
 Use the guarded workflow for normal operation. Manual commands are for local operator preflight only.
 
+To inspect the future lab zone delegation values after an apply, read the
+subscription deployment output:
+
+    az deployment sub show \
+      --name apim-ai-gateway-lab-swc \
+      --query "properties.outputs.labPublicDnsZoneNameServers.value" \
+      --output tsv
+
 ## RBAC Model
 
 The permanent deployment admin group receives Key Vault Administrator at the lab
@@ -147,7 +181,20 @@ decision.
 
 ## AVM Decision
 
-This pass uses local raw Bicep resources instead of Azure Verified Modules. The deployment needs tight cross-resource wiring for APIM private gateway, Application Gateway, DNS alias records, private DNS, diagnostic settings, route tables, and VNet peerings. Local Bicep keeps the first deployable slice inspectable and avoids wrapping many AVM modules before the lab has stable parameters. Revisit AVM composition after the first successful what-if and apply.
+This pass uses the pinned Azure Verified Module
+`br/public:avm/res/network/dns-zone:0.6.0` for the future
+`lab.consultwithcloud.com` public DNS zone because that resource is an isolated
+fit and exposes the assigned Azure DNS name servers as an output. The current
+`api.consultwithcloud.com` zone and alias record remain local raw Bicep because
+they are wired directly to the Application Gateway public IP in the existing
+edge slice.
+
+The rest of the deployment uses local raw Bicep resources. The deployment needs
+tight cross-resource wiring for APIM private gateway, Application Gateway,
+private DNS, diagnostic settings, route tables, and VNet peerings. Local Bicep
+keeps the first deployable slice inspectable and avoids wrapping many AVM
+modules before the lab has stable parameters. Revisit AVM composition after the
+first successful what-if and apply.
 
 ## Open Operational Inputs
 

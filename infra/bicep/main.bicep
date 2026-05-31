@@ -44,6 +44,7 @@ var hubVnetName = 'vnet-cwc-ai-gw-hub-swc-001'
 var hubVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${hubRgName}/providers/Microsoft.Network/virtualNetworks/${hubVnetName}'
 var runnerVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${runnerVnetResourceGroupName}/providers/Microsoft.Network/virtualNetworks/${runnerVnetName}'
 var publicHostname = 'api.consultwithcloud.com'
+var labPublicDnsZoneName = 'lab.consultwithcloud.com'
 var keyVaultName = 'kv-cwc-ai-gw-swc-001'
 var certificateSecretUri = empty(customDomainCertificateSecretUri) ? 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/cert-api-consultwithcloud-com' : customDomainCertificateSecretUri
 var tags = {
@@ -79,6 +80,7 @@ module hub './modules/hub.bicep' = {
     enablePublicEdge: enablePublicEdge
     enableCustomDomain: enableCustomDomain
     publicHostname: publicHostname
+    labPublicDnsZoneName: labPublicDnsZoneName
     customDomainCertificateSecretUri: certificateSecretUri
     deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
@@ -125,4 +127,6 @@ output keyVaultName string = hub.outputs.keyVaultName
 output apimName string = hub.outputs.apimName
 output applicationGatewayName string = hub.outputs.applicationGatewayName
 output certificateSecretUri string = certificateSecretUri
+output labPublicDnsZoneName string = labPublicDnsZoneName
+output labPublicDnsZoneNameServers array = hub.outputs.labPublicDnsZoneNameServers
 output expectedRepositoryGuard string = expectedRepository

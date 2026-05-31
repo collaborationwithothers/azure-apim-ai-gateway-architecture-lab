@@ -4,6 +4,7 @@ param location string
 param tags object
 param enablePublicEdge bool
 param publicHostname string
+param labPublicDnsZoneName string
 param customDomainCertificateSecretUri string
 param wafAllowedSourceCidrs array
 param appGwSubnetId string
@@ -29,6 +30,14 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
   name: publicHostname
   location: 'global'
   tags: tags
+}
+
+module labPublicDnsZone 'br/public:avm/res/network/dns-zone:0.6.0' = {
+  name: 'lab-public-dns-zone'
+  params: {
+    name: labPublicDnsZoneName
+    tags: tags
+  }
 }
 
 resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2024-05-01' = {
@@ -229,3 +238,4 @@ resource publicDnsAlias 'Microsoft.Network/dnsZones/A@2018-05-01' = if (enablePu
 
 output applicationGatewayName string = enablePublicEdge ? appGateway.name : 'not-deployed-until-enablePublicEdge-true'
 output applicationGatewayId string = enablePublicEdge ? appGateway.id : ''
+output labPublicDnsZoneNameServers array = labPublicDnsZone.outputs.nameServers

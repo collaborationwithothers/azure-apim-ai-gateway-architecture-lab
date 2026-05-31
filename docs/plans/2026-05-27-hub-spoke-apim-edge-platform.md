@@ -22,6 +22,7 @@ The observable result is a successful Bicep build, a subscription-scope Azure wh
 - [x] (2026-05-30) Added guarded certificate issuance workflow.
 - [x] (2026-05-30) Updated README and infra README with run instructions and warnings.
 - [x] (2026-05-30) Validated Bicep build and documentation formatting.
+- [x] (2026-05-31) Added the future `lab.consultwithcloud.com` public DNS child zone and name server deployment output.
 
 ## Surprises & Discoveries
 
@@ -175,7 +176,9 @@ Run apply only after reviewing what-if:
       --parameters location=swedencentral \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-After phase one, delegate the DNS child zone from the parent DNS host. Then run the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
+After phase one, capture the `labPublicDnsZoneNameServers` deployment output and create `NS` records for child name `lab` in the Cloudflare-managed parent zone `consultwithcloud.com`. This delegates `lab.consultwithcloud.com` for future full demo hostnames only. It does not create records for `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, or `argo.lab.consultwithcloud.com`.
+
+For the current edge path, delegate the existing `api.consultwithcloud.com` DNS child zone from the parent DNS host before running the certificate workflow. The certificate workflow imports a PFX certificate into Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution is visible, re-run with both values set to `true`.
 
 For the guarded workflow path, set `RUNNER_ALLOWED_PUBLIC_IP_CIDR` as a variable on the `dev` GitHub Environment. The workflow passes that value to the Bicep `runnerAllowedPublicIp` parameter so operators do not type the runner NAT CIDR for every run.
 
@@ -207,6 +210,7 @@ Azure validation after apply:
 - The hub, spoke, and runner VNets have bidirectional peerings.
 - Application Gateway frontend public IP exists.
 - Public DNS zone `api.consultwithcloud.com` exists and has an alias `A` record to the Application Gateway public IP.
+- Public DNS zone `lab.consultwithcloud.com` exists and `labPublicDnsZoneNameServers` lists the Azure DNS name servers required for Cloudflare delegation.
 - APIM Premium v2 exists with a private gateway and one unit.
 - Key Vault has purge protection enabled.
 - ACR admin user is disabled.
@@ -322,12 +326,15 @@ Use these documentation sources during implementation:
 - Azure Firewall structured logs: https://learn.microsoft.com/en-us/azure/firewall/firewall-structured-logs
 - VNet peering overview: https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-peering-overview
 - Azure DNS alias records: https://learn.microsoft.com/en-us/azure/dns/dns-alias
+- Azure DNS domain delegation: https://learn.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns
 - Key Vault soft delete: https://learn.microsoft.com/en-us/azure/key-vault/general/soft-delete-overview
 - ACR authentication: https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication
 - Bicep GitHub Actions deployment: https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deploy-github-actions
 - GitHub OIDC reference: https://docs.github.com/en/actions/reference/security/oidc
 
 ## Revision Notes
+
+- 2026-05-31: Added issue #29 public DNS zone output for `lab.consultwithcloud.com` and clarified that Cloudflare delegation is an operator step before future lab hostnames, certificates, and custom domains.
 
 2026-05-27: Initial ExecPlan created after grill-me discovery. The plan captures the APIM Premium v2 design, guarded public repository workflow constraints, existing runner VNet peering model, and two-phase certificate binding model.
 

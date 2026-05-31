@@ -41,6 +41,27 @@ has_azure_changing_command() {
   grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
 }
 
+has_forbidden_runner_mutation() {
+  local rel="$1"
+  local file="$2"
+  local line
+  local apt_get_check_regex='^[[:space:]]*if[[:space:]]+![[:space:]]+command[[:space:]]+-v[[:space:]]+apt-get[[:space:]]+>/dev/null[[:space:]]+2>\&1\;[[:space:]]+then[[:space:]]*$'
+
+  while IFS= read -r line; do
+    if [[ "$rel" == ".github/workflows/certificate-issue.yml" ]]; then
+      if [[ "$line" =~ $apt_get_check_regex ]] ||
+          [[ "$line" =~ ^[[:space:]]*sudo[[:space:]]+apt-get[[:space:]]+update[[:space:]]*$ ]] ||
+          [[ "$line" =~ ^[[:space:]]*sudo[[:space:]]+apt-get[[:space:]]+install[[:space:]]+-y[[:space:]]+certbot[[:space:]]*$ ]]; then
+        continue
+      fi
+    fi
+
+    return 0
+  done < <(grep -E 'sudo |apt-get|InstallAzureCLIDeb|curl .*\|.*bash' "$file" || true)
+
+  return 1
+}
+
 deletes_persistent_resource_group() {
   local file="$1"
   awk '
@@ -367,7 +388,7 @@ while IFS= read -r workflow; do
     fail "$rel must use the consultwithcloud-azure runner group with the gh-linux label for every job: ${invalid_runner_jobs//$'\n'/, }"
   fi
 
-  if grep -Eq 'sudo |apt-get|InstallAzureCLIDeb|curl .*\|.*bash' "$workflow"; then
+  if has_forbidden_runner_mutation "$rel" "$workflow"; then
     fail "$rel must not mutate the managed runner at runtime"
   fi
 
@@ -586,6 +607,9 @@ while IFS= read -r workflow; do
       "staging" \
       "production" \
       "--test-cert" \
+      "Install certbot if missing" \
+      "sudo apt-get install -y certbot" \
+      "::add-mask::" \
       "az network dns record-set txt add-record" \
       "az network dns record-set txt remove-record" \
       "az keyvault certificate import" \

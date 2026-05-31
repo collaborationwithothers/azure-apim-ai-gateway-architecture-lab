@@ -154,8 +154,9 @@ Use `.github/workflows/certificate-issue.yml` only after the bootstrap workflow
 has created the Azure DNS child zone and Key Vault. The certificate workflow
 performs Let's Encrypt ACME DNS-01 issuance and imports a PFX certificate into
 Key Vault as `cert-lab-consultwithcloud-com` for Application Gateway TLS
-termination. APIM custom domain binding remains a separate later infrastructure
-step. The deployment is staged:
+termination. It installs `certbot` with `apt-get` only when `certbot` is not
+already present on the managed runner. APIM custom domain binding remains a
+separate later infrastructure step. The deployment is staged:
 
 1. Run persistent bootstrap in `apply` mode.
 2. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.

@@ -36,6 +36,9 @@ env:
   HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001
   APPGW_SUBNET_NAME: snet-appgw
   APIM_SUBNET_NAME: snet-apim
+  RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
+  RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
+  RUNNER_SUBNET_NAME: snet-github-actions-private-runner-neu
 
 jobs:
   validate:
@@ -128,8 +131,21 @@ jobs:
       - name: Infer Key Vault VNet rules
         run: |
           set -euo pipefail
+          runner_subnet_id=""
           appgw_subnet_id=""
           apim_subnet_id=""
+
+          if runner_subnet_id="$(az network vnet subnet show \
+            --resource-group "$RUNNER_VNET_RESOURCE_GROUP_NAME" \
+            --vnet-name "$RUNNER_VNET_NAME" \
+            --name "$RUNNER_SUBNET_NAME" \
+            --query id \
+            -o tsv 2>/dev/null)"; then
+            echo "GitHub runner subnet found. Key Vault VNet rules will include $RUNNER_SUBNET_NAME."
+          else
+            echo "GitHub runner subnet $RUNNER_SUBNET_NAME was not found in $RUNNER_VNET_NAME." >&2
+            exit 1
+          fi
 
           if appgw_subnet_id="$(az network vnet subnet show \
             --resource-group "$HUB_RESOURCE_GROUP_NAME" \
@@ -154,14 +170,17 @@ jobs:
           fi
 
           if [[ -z "$appgw_subnet_id" && -z "$apim_subnet_id" ]]; then
-            key_vault_vnet_rule_subnet_ids="[]"
-            echo "Hub subnets not found. Key Vault VNet rules will remain empty."
+            key_vault_vnet_rule_subnet_ids="$(jq -cn \
+              --arg runnerSubnetId "$runner_subnet_id" \
+              '[$runnerSubnetId]')"
+            echo "Hub subnets not found. Key Vault VNet rules will include only $RUNNER_SUBNET_NAME."
           elif [[ -n "$appgw_subnet_id" && -n "$apim_subnet_id" ]]; then
             key_vault_vnet_rule_subnet_ids="$(jq -cn \
+              --arg runnerSubnetId "$runner_subnet_id" \
               --arg appgwSubnetId "$appgw_subnet_id" \
               --arg apimSubnetId "$apim_subnet_id" \
-              '[$appgwSubnetId, $apimSubnetId]')"
-            echo "Hub subnets found. Key Vault VNet rules will include $APPGW_SUBNET_NAME and $APIM_SUBNET_NAME."
+              '[$runnerSubnetId, $appgwSubnetId, $apimSubnetId]')"
+            echo "Hub subnets found. Key Vault VNet rules will include $RUNNER_SUBNET_NAME, $APPGW_SUBNET_NAME, and $APIM_SUBNET_NAME."
           else
             echo "Both hub Key Vault client subnets must exist, or neither should exist." >&2
             echo "$APPGW_SUBNET_NAME found: $([[ -n "$appgw_subnet_id" ]] && echo yes || echo no)" >&2
@@ -247,8 +266,21 @@ jobs:
       - name: Infer Key Vault VNet rules
         run: |
           set -euo pipefail
+          runner_subnet_id=""
           appgw_subnet_id=""
           apim_subnet_id=""
+
+          if runner_subnet_id="$(az network vnet subnet show \
+            --resource-group "$RUNNER_VNET_RESOURCE_GROUP_NAME" \
+            --vnet-name "$RUNNER_VNET_NAME" \
+            --name "$RUNNER_SUBNET_NAME" \
+            --query id \
+            -o tsv 2>/dev/null)"; then
+            echo "GitHub runner subnet found. Key Vault VNet rules will include $RUNNER_SUBNET_NAME."
+          else
+            echo "GitHub runner subnet $RUNNER_SUBNET_NAME was not found in $RUNNER_VNET_NAME." >&2
+            exit 1
+          fi
 
           if appgw_subnet_id="$(az network vnet subnet show \
             --resource-group "$HUB_RESOURCE_GROUP_NAME" \
@@ -273,14 +305,17 @@ jobs:
           fi
 
           if [[ -z "$appgw_subnet_id" && -z "$apim_subnet_id" ]]; then
-            key_vault_vnet_rule_subnet_ids="[]"
-            echo "Hub subnets not found. Key Vault VNet rules will remain empty."
+            key_vault_vnet_rule_subnet_ids="$(jq -cn \
+              --arg runnerSubnetId "$runner_subnet_id" \
+              '[$runnerSubnetId]')"
+            echo "Hub subnets not found. Key Vault VNet rules will include only $RUNNER_SUBNET_NAME."
           elif [[ -n "$appgw_subnet_id" && -n "$apim_subnet_id" ]]; then
             key_vault_vnet_rule_subnet_ids="$(jq -cn \
+              --arg runnerSubnetId "$runner_subnet_id" \
               --arg appgwSubnetId "$appgw_subnet_id" \
               --arg apimSubnetId "$apim_subnet_id" \
-              '[$appgwSubnetId, $apimSubnetId]')"
-            echo "Hub subnets found. Key Vault VNet rules will include $APPGW_SUBNET_NAME and $APIM_SUBNET_NAME."
+              '[$runnerSubnetId, $appgwSubnetId, $apimSubnetId]')"
+            echo "Hub subnets found. Key Vault VNet rules will include $RUNNER_SUBNET_NAME, $APPGW_SUBNET_NAME, and $APIM_SUBNET_NAME."
           else
             echo "Both hub Key Vault client subnets must exist, or neither should exist." >&2
             echo "$APPGW_SUBNET_NAME found: $([[ -n "$appgw_subnet_id" ]] && echo yes || echo no)" >&2

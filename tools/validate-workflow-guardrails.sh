@@ -572,9 +572,13 @@ while IFS= read -r workflow; do
       "HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001" \
       "APPGW_SUBNET_NAME: snet-appgw" \
       "APIM_SUBNET_NAME: snet-apim" \
+      "RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu" \
+      "RUNNER_VNET_NAME: vnet-dv-gh-actions-neu" \
+      "RUNNER_SUBNET_NAME: snet-github-actions-private-runner-neu" \
       "Infer Key Vault VNet rules" \
       "az network vnet subnet show" \
       "Both hub Key Vault client subnets must exist, or neither should exist." \
+      "GitHub runner subnet found. Key Vault VNet rules will include" \
       "KEY_VAULT_VNET_RULE_SUBNET_IDS" \
       "keyVaultVirtualNetworkRuleSubnetIds" \
       "az deployment sub what-if" \

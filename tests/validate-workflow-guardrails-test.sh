@@ -597,8 +597,12 @@ jobs:
           echo "HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001"
           echo "APPGW_SUBNET_NAME: snet-appgw"
           echo "APIM_SUBNET_NAME: snet-apim"
+          echo "RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu"
+          echo "RUNNER_VNET_NAME: vnet-dv-gh-actions-neu"
+          echo "RUNNER_SUBNET_NAME: snet-github-actions-private-runner-neu"
           echo "Infer Key Vault VNet rules"
           echo "Both hub Key Vault client subnets must exist, or neither should exist."
+          echo "GitHub runner subnet found. Key Vault VNet rules will include"
           echo "Microsoft.KeyVault"
           echo "Microsoft.Network"
           az network vnet subnet show --name snet-appgw

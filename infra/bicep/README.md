@@ -175,13 +175,20 @@ those name servers as `NS` records for `lab` in the Cloudflare
 `consultwithcloud.com` zone. This prepares the full demo hostnames only. It
 does not issue a certificate or bind an APIM custom domain.
 
+The persistent bootstrap workflow always looks up the fixed GitHub runner
+subnet `snet-github-actions-private-runner-neu` in `vnet-dv-gh-actions-neu` and
+passes that subnet resource ID to Bicep for the shared vault network rules. This
+keeps runner access on the Key Vault service endpoint path instead of relying
+only on the runner NAT IP firewall rule.
+
 After the hub subnets exist, rerun persistent bootstrap in `apply` mode. The
-workflow looks for `snet-appgw` and `snet-apim` in
+workflow also looks for `snet-appgw` and `snet-apim` in
 `vnet-cwc-ai-gw-hub-swc-001`. If both exist, it passes their subnet resource
-IDs to Bicep and updates the shared vault network rules. If neither exists, it
-passes an empty array for the first bootstrap run. If only one exists, the
-workflow fails because the hub network is in a partial state. This keeps the
-manual Cloudflare delegation intact.
+IDs along with the runner subnet ID to Bicep and updates the shared vault
+network rules. If neither exists, it passes only the runner subnet ID for the
+first bootstrap run. If only one exists, the workflow fails because the hub
+network is in a partial state. This keeps the manual Cloudflare delegation
+intact.
 
 ### Lab API Hostname Flow
 

@@ -28,8 +28,12 @@ grep -q "HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001" "$workflow"
 grep -q "HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001" "$workflow"
 grep -q "APPGW_SUBNET_NAME: snet-appgw" "$workflow"
 grep -q "APIM_SUBNET_NAME: snet-apim" "$workflow"
+grep -q "RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu" "$workflow"
+grep -q "RUNNER_VNET_NAME: vnet-dv-gh-actions-neu" "$workflow"
+grep -q "RUNNER_SUBNET_NAME: snet-github-actions-private-runner-neu" "$workflow"
 grep -q "az network vnet subnet show" "$workflow"
 grep -q "Both hub Key Vault client subnets must exist, or neither should exist." "$workflow"
+grep -q "GitHub runner subnet found. Key Vault VNet rules will include" "$workflow"
 grep -q 'keyVaultVirtualNetworkRuleSubnetIds="$KEY_VAULT_VNET_RULE_SUBNET_IDS"' "$workflow"
 
 if grep -R --include='*.bicep' "api.consultwithcloud.com" "$repo_root/infra/bicep" >/tmp/persistent-forbidden.out 2>&1; then

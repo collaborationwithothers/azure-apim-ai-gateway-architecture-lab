@@ -691,6 +691,103 @@ EOF
     /tmp/workflow-guardrails-runner-input.out
 }
 
+expect_failure_for_manual_custom_domain_secret_uri_input() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-deploy.yml" <<EOF
+name: Infra Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options: [validate, what-if, apply]
+      custom_domain_certificate_secret_uri:
+        required: false
+permissions:
+  contents: read
+jobs:
+  bad:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+      CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI: \${{ inputs.custom_domain_certificate_secret_uri }}
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
+          az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-input.out 2>&1; then
+    echo "expected manual custom_domain_certificate_secret_uri input to fail" >&2
+    return 1
+  fi
+  grep -q "must not require custom_domain_certificate_secret_uri as a manual workflow input" \
+    /tmp/workflow-guardrails-custom-domain-secret-input.out
+}
+
+expect_failure_for_custom_domain_secret_uri_forwarding() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-deploy.yml" <<EOF
+name: Infra Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options: [validate, what-if, apply]
+permissions:
+  contents: read
+jobs:
+  bad:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
+          az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" customDomainCertificateSecretUri="https://example.vault.azure.net/secrets/example"
+EOF
+  if "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-forward.out 2>&1; then
+    echo "expected customDomainCertificateSecretUri forwarding to fail" >&2
+    return 1
+  fi
+  grep -q "must not pass customDomainCertificateSecretUri from the deployment workflow" \
+    /tmp/workflow-guardrails-custom-domain-secret-forward.out
+}
+
 expect_failure_for_unpinned_actions() {
   local dir
   dir="$(mktemp -d)"
@@ -1093,6 +1190,8 @@ expect_failure_for_deployment_missing_environment
 expect_failure_for_input_environment
 expect_failure_for_caller_controlled_repository_guard
 expect_failure_for_manual_runner_ip_input
+expect_failure_for_manual_custom_domain_secret_uri_input
+expect_failure_for_custom_domain_secret_uri_forwarding
 expect_failure_for_unpinned_actions
 expect_failure_for_deployment_command_in_unapproved_job
 expect_failure_for_provider_register_in_what_if

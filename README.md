@@ -116,7 +116,8 @@ Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`.
 The workflow reads the runner NAT CIDR from the `RUNNER_ALLOWED_PUBLIC_IP_CIDR`
 variable on the `dev` GitHub Environment. It accepts the remaining non-secret
 deployment inputs directly, including `enable_public_edge`,
-`enable_custom_domain`, and optional `custom_domain_certificate_secret_uri`.
+`enable_custom_domain`, and `deployment_name`. The lab Key Vault certificate
+secret URI is inferred by Bicep from the fixed lab resource names.
 The Bicep deployment assigns the permanent deployment admin group Key Vault
 Administrator on the lab vault and AcrPush on the lab registry. The workflow
 identity must already have the management-plane permissions needed to create

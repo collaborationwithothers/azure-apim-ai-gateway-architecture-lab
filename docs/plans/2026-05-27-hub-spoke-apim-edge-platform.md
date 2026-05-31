@@ -111,7 +111,7 @@ Important terms:
 
 ## Plan of Work
 
-Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Add parameters for subscription-scale settings: `location`, `environmentName`, `namePrefix`, `expectedRepository`, `runnerAllowedPublicIp`, `enablePublicEdge`, `enableCustomDomain`, and any certificate secret URI values needed for phase two and phase three. Create both resource groups in this file, then call resource-group-scoped modules for hub and spoke.
+Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Add parameters for subscription-scale settings: `location`, `environmentName`, `namePrefix`, `expectedRepository`, `runnerAllowedPublicIp`, `enablePublicEdge`, and `enableCustomDomain`. Keep any certificate secret URI value as an optional Bicep override; the GitHub deployment workflow uses the inferred lab Key Vault secret URI. Create both resource groups in this file, then call resource-group-scoped modules for hub and spoke.
 
 Create a module folder under `infra/bicep/modules/`. Use Azure Verified Modules for resource types where the module is available, works cleanly, and can be pinned to an explicit version. Use raw Bicep for VNet peerings, route tables, diagnostic settings, DNS records, and other cross-resource wiring where raw resources are clearer.
 

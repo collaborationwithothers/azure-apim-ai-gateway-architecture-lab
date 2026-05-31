@@ -44,10 +44,6 @@ on:
         options:
           - "false"
           - "true"
-      custom_domain_certificate_secret_uri:
-        description: Optional versionless Key Vault secret URI for the PFX certificate.
-        required: false
-        default: ""
       deployment_name:
         description: Azure subscription deployment name.
         required: true
@@ -62,7 +58,6 @@ env:
   PARAMETERS_FILE: ${{ inputs.parameters_file }}
   ENABLE_PUBLIC_EDGE: ${{ inputs.enable_public_edge }}
   ENABLE_CUSTOM_DOMAIN: ${{ inputs.enable_custom_domain }}
-  CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI: ${{ inputs.custom_domain_certificate_secret_uri }}
   DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
 
 jobs:
@@ -177,9 +172,6 @@ jobs:
             enablePublicEdge="$ENABLE_PUBLIC_EDGE"
             enableCustomDomain="$ENABLE_CUSTOM_DOMAIN"
           )
-          if [[ -n "$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" ]]; then
-            args+=(customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
-          fi
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")
           fi
@@ -269,9 +261,6 @@ jobs:
             enablePublicEdge="$ENABLE_PUBLIC_EDGE"
             enableCustomDomain="$ENABLE_CUSTOM_DOMAIN"
           )
-          if [[ -n "$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" ]]; then
-            args+=(customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
-          fi
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")
           fi

@@ -130,7 +130,7 @@ The workflow reads the runner NAT CIDR from the `RUNNER_ALLOWED_PUBLIC_IP_CIDR`
 variable on the `dev` GitHub Environment. It accepts the remaining non-secret
 deployment inputs directly, including `enable_public_edge`,
 `enable_custom_domain`, and `deployment_name`. The lab Key Vault certificate
-secret URI must be supplied only after the certificate object name is confirmed.
+secret URI must be supplied only after `cert-lab-consultwithcloud-com` exists.
 The Bicep deployment assigns the permanent deployment admin group Key Vault
 Administrator on the lab vault and AcrPush on the lab registry. The workflow
 identity must already have the management-plane permissions needed to create
@@ -143,15 +143,15 @@ the `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, and
 `argo.lab.consultwithcloud.com` hostnames; it does not issue certificates or
 change APIM custom-domain binding.
 Use `.github/workflows/certificate-issue.yml` only after phase 1 has created the
-Azure DNS child zone and Key Vault, and only after the Key Vault certificate
-object name is confirmed. The certificate workflow performs Let's Encrypt
+Azure DNS child zone and Key Vault. The certificate workflow performs Let's Encrypt
 ACME DNS-01 issuance and imports a PFX certificate into Key Vault for
-Application Gateway TLS termination. APIM custom domain binding remains a
-separate later infrastructure step. The deployment is two-phase:
+Application Gateway TLS termination as `cert-lab-consultwithcloud-com`. APIM
+custom domain binding remains a separate later infrastructure step. The
+deployment is two-phase:
 
 1. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
 2. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
-3. Run the certificate workflow with the confirmed lab certificate object name.
+3. After parent-zone delegation is in place, run the certificate workflow in staging mode.
 4. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
 5. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
 

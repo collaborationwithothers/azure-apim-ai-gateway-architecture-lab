@@ -495,14 +495,20 @@ while IFS= read -r workflow; do
   fi
 
   if [[ "$rel" == ".github/workflows/certificate-issue.yml" ]]; then
+    if has_literal "certificate_name:" "$workflow" || has_literal "inputs.certificate_name" "$workflow"; then
+      fail "$rel must use the fixed lab SAN certificate object name instead of a dispatch certificate_name input"
+    fi
+
     for expected in \
-      "certificate_name:" \
-      "KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}" \
-      "certificate_name must be a confirmed Key Vault certificate object name" \
-      "CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com" \
+      "KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com" \
+      "CERTIFICATE_DOMAINS:" \
       "lab.consultwithcloud.com" \
       "api.lab.consultwithcloud.com" \
+      "app.lab.consultwithcloud.com" \
+      "argo.lab.consultwithcloud.com" \
       "_acme-challenge.api" \
+      "_acme-challenge.app" \
+      "_acme-challenge.argo" \
       "staging" \
       "production" \
       "--test-cert" \

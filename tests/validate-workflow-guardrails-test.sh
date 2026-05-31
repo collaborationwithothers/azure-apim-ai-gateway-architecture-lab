@@ -227,6 +227,9 @@ jobs:
           echo "_acme-challenge.app"
           echo "_acme-challenge.argo"
           echo "--test-cert"
+          echo "Install certbot if missing"
+          sudo apt-get install -y certbot
+          echo "::add-mask::secret"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
@@ -288,6 +291,9 @@ jobs:
           echo "_acme-challenge.app"
           echo "_acme-challenge.argo"
           echo "--test-cert"
+          echo "Install certbot if missing"
+          sudo apt-get install -y certbot
+          echo "::add-mask::secret"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
@@ -1242,6 +1248,9 @@ jobs:
           echo "_acme-challenge.app"
           echo "_acme-challenge.argo"
           echo "--test-cert"
+          echo "Install certbot if missing"
+          sudo apt-get install -y certbot
+          echo "::add-mask::secret"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "$KEY_VAULT_CERTIFICATE_NAME.pfx"
@@ -1600,6 +1609,74 @@ EOF
     /tmp/workflow-guardrails-mutate.out
 }
 
+expect_failure_for_certificate_unapproved_runner_mutation() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
+name: Certificate Issue
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      acme_server:
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+permissions:
+  contents: read
+env:
+  CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
+  KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+jobs:
+  issue:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "rg-cwc-ai-gw-shared-swc-001"
+          echo "kv-cwc-aigw-shr-swc-001"
+          echo "lab.consultwithcloud.com"
+          echo "api.lab.consultwithcloud.com"
+          echo "app.lab.consultwithcloud.com"
+          echo "argo.lab.consultwithcloud.com"
+          echo "_acme-challenge.api"
+          echo "_acme-challenge.app"
+          echo "_acme-challenge.argo"
+          echo "--test-cert"
+          echo "Install certbot if missing"
+          sudo apt-get install -y certbot
+          echo "::add-mask::secret"
+          sudo apt-get install -y jq
+          az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-certificate-mutate.out 2>&1; then
+    echo "expected unapproved certificate runner mutation to fail" >&2
+    return 1
+  fi
+  grep -q "must not mutate the managed runner" \
+    /tmp/workflow-guardrails-certificate-mutate.out
+}
+
 expect_success
 expect_success_for_guarded_deployment_workflows
 expect_failure_for_certificate_name_input
@@ -1630,5 +1707,6 @@ expect_failure_for_github_hosted_runner
 expect_failure_for_mixed_runner_jobs
 expect_failure_for_runner_group_keys_outside_runs_on
 expect_failure_for_runner_mutation
+expect_failure_for_certificate_unapproved_runner_mutation
 
 echo "validate-workflow-guardrails tests passed"

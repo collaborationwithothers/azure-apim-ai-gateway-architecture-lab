@@ -76,6 +76,21 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Install certbot if missing
+        run: |
+          set -euo pipefail
+          if command -v certbot >/dev/null 2>&1; then
+            certbot --version
+            exit 0
+          fi
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "certbot is not installed and the supported package manager is not available on this runner." >&2
+            exit 1
+          fi
+          sudo apt-get update
+          sudo apt-get install -y certbot
+          certbot --version
+
       - name: Check required tools
         run: |
           set -euo pipefail
@@ -190,6 +205,7 @@ jobs:
           live_dir="$certbot_root/config/live/api.lab.consultwithcloud.com"
           pfx_file="$RUNNER_TEMP/$KEY_VAULT_CERTIFICATE_NAME.pfx"
           pfx_password="$(openssl rand -base64 32)"
+          echo "::add-mask::$pfx_password"
           umask 077
           openssl pkcs12 -export \
             -out "$pfx_file" \

@@ -75,9 +75,10 @@ certificate, and listener work depends on it.
 
 Issue #33 moves the active public API hostname contract to
 `api.lab.consultwithcloud.com`, keeps `lab.consultwithcloud.com` as the DNS
-zone, and carries explicit `api`, `app`, and `argo` record labels. The future
-lab SAN certificate object name remains unresolved. Let's Encrypt certificate
-issuance and APIM custom domain binding are still separate later steps.
+zone, and carries explicit `api`, `app`, and `argo` record labels. PR #63 uses
+fixed Key Vault certificate object name `cert-lab-consultwithcloud-com`. Let's
+Encrypt certificate issuance and APIM custom domain binding are still separate
+later steps.
 
 AVM fit for issue #32 was checked against the AVM Bicep module index. No AVM or
 local resource module is added for issue #32 because this slice defines only

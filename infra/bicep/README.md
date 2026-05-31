@@ -99,7 +99,7 @@ GitOps, private endpoint, or workload modules.
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
 | `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
-| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI. Leave empty until the lab certificate object name is confirmed and certificate issuance is complete. |
+| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI. Leave empty until `cert-lab-consultwithcloud-com` exists and certificate issuance is complete. |
 | `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
@@ -166,10 +166,9 @@ DNS zone `consultwithcloud.com` so `lab.consultwithcloud.com` uses the Azure DNS
 name servers created by the lab child zone. Then run
 `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT
 records in `lab.consultwithcloud.com` and import the Let's Encrypt SAN
-certificate into Key Vault using the confirmed certificate object name. Parent
-zone delegation must be in place before production issuance. The future lab SAN
-certificate object name remains an open decision until it is confirmed by the
-operator. The certificate workflow imports a PFX file because
+certificate into Key Vault as `cert-lab-consultwithcloud-com`. Parent zone
+delegation must be in place before production issuance. The certificate
+workflow imports a PFX file because
 Application Gateway TLS termination requires PFX certificates in Key Vault.
 
 Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
@@ -302,7 +301,7 @@ first successful what-if and apply.
 - `dev` GitHub Environment approval setup for Azure-changing jobs.
 - Azure federated identity credentials for GitHub OIDC.
 - Parent DNS zone delegation for `lab.consultwithcloud.com`.
-- Confirmed Key Vault object name for the lab certificate.
+- Key Vault certificate object `cert-lab-consultwithcloud-com`.
 - Confirmation that APIM Premium v2 capacity and required Azure OpenAI model quota are available in `swedencentral` at deployment time.
 
 ## Data Warning

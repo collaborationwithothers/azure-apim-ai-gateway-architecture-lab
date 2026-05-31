@@ -285,9 +285,9 @@ Acceptance criteria:
 
 - Workflow is `workflow_dispatch` only.
 - Workflow uses OIDC, not a client secret.
-- Workflow imports the certificate using the confirmed Key Vault certificate object name.
+- Workflow imports the certificate using fixed Key Vault certificate object name `cert-lab-consultwithcloud-com`.
 - Workflow imports a PFX certificate for Application Gateway TLS termination.
-- The future lab SAN certificate object name remains an open decision and is not assigned by this requirement.
+- The lab SAN certificate object name is `cert-lab-consultwithcloud-com`.
 - Workflow has the same repository, actor, branch, runner, and environment guards as deployment.
 
 ### FR-14: GitHub Actions guardrails

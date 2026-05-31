@@ -174,9 +174,6 @@ on:
     inputs:
       expected_repository:
         required: true
-      certificate_name:
-        required: true
-        description: Confirmed Key Vault certificate object name.
       dns_zone_name:
         default: lab.consultwithcloud.com
       acme_server:
@@ -189,7 +186,7 @@ permissions:
   contents: read
 env:
   CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
-  KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}
+  KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
 jobs:
   issue:
     if: >-
@@ -209,10 +206,6 @@ jobs:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
-          if [[ ! "\$KEY_VAULT_CERTIFICATE_NAME" =~ ^[A-Za-z0-9-]{1,127}$ ]]; then
-            echo "certificate_name must be a confirmed Key Vault certificate object name using only letters, numbers, and hyphens." >&2
-            exit 1
-          fi
           echo "api.lab.consultwithcloud.com"
           echo "app.lab.consultwithcloud.com"
           echo "argo.lab.consultwithcloud.com"
@@ -986,10 +979,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/login@v2
       - run: |
-          if [[ ! "$KEY_VAULT_CERTIFICATE_NAME" =~ ^[A-Za-z0-9-]{1,127}$ ]]; then
-            echo "certificate_name must be a confirmed Key Vault certificate object name using only letters, numbers, and hyphens." >&2
-            exit 1
-          fi
+          echo "KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com"
           echo "--test-cert"
           echo lab.consultwithcloud.com
           echo api.lab.consultwithcloud.com

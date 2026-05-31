@@ -147,8 +147,8 @@ The deployment creates the public DNS child zone `lab.consultwithcloud.com` and
 outputs its Azure DNS name servers. Cloudflare owns the parent
 `consultwithcloud.com` zone, so parent delegation for `lab` is a separate
 operator step. Let's Encrypt certificate issuance and APIM custom domain binding
-remain separate later steps. The future lab SAN certificate object name remains
-an open decision.
+remain separate later steps. The lab SAN certificate object name is
+`cert-lab-consultwithcloud-com`.
 
 GitHub Actions uses two manual workflows:
 

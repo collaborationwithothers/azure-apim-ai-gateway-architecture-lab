@@ -103,7 +103,7 @@ GitOps, private endpoint, or workload modules.
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
 | `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
-| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI. Leave empty until `cert-lab-consultwithcloud-com` exists and certificate issuance is complete. |
+| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI for direct Bicep runs. The guarded workflow infers it from `cert-lab-consultwithcloud-com` when `enablePublicEdge` is `true`. |
 | `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
@@ -175,11 +175,13 @@ those name servers as `NS` records for `lab` in the Cloudflare
 `consultwithcloud.com` zone. This prepares the full demo hostnames only. It
 does not issue a certificate or bind an APIM custom domain.
 
-After the hub subnets exist, rerun persistent bootstrap in `apply` mode with
-`key_vault_virtual_network_rule_subnet_ids` set to a JSON array containing the
-Application Gateway and APIM subnet resource IDs from the main deployment
-outputs. This updates the shared vault network rules without recreating the
-manual Cloudflare delegation.
+After the hub subnets exist, rerun persistent bootstrap in `apply` mode. The
+workflow looks for `snet-appgw` and `snet-apim` in
+`vnet-cwc-ai-gw-hub-swc-001`. If both exist, it passes their subnet resource
+IDs to Bicep and updates the shared vault network rules. If neither exists, it
+passes an empty array for the first bootstrap run. If only one exists, the
+workflow fails because the hub network is in a partial state. This keeps the
+manual Cloudflare delegation intact.
 
 ### Lab API Hostname Flow
 
@@ -193,7 +195,7 @@ delegation must be in place before production issuance. The certificate
 workflow imports a PFX file because
 Application Gateway TLS termination requires PFX certificates in Key Vault.
 
-Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
+Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. The guarded workflow looks up `cert-lab-consultwithcloud-com` in `kv-cwc-aigw-shr-swc-001`, strips the secret version, and passes the versionless URI to Bicep. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
 
 Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.lab.consultwithcloud.com` resolves to Application Gateway. This binds `api.lab.consultwithcloud.com` on APIM and creates the private APIM resolution record. Let's Encrypt certificate issuance and APIM custom domain binding remain separate steps.
 
@@ -279,10 +281,10 @@ Run hub-spoke apply:
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-For phase 2, set `enablePublicEdge=true` after the confirmed lab
-certificate exists in Key Vault and `customDomainCertificateSecretUri` points to
-its versionless secret URI. For phase 3, keep `enablePublicEdge=true` and set
-`enableCustomDomain=true` after public DNS resolution is visible. The
+For phase 2, set `enablePublicEdge=true` after the confirmed lab certificate
+exists in Key Vault. The guarded workflow infers `customDomainCertificateSecretUri`
+from the fixed lab certificate object. For phase 3, keep `enablePublicEdge=true`
+and set `enableCustomDomain=true` after public DNS resolution is visible. The
 certificate workflow uses the same OIDC identity path as the infrastructure
 workflow and relies on deployment admin group membership for Key Vault
 certificate operations.

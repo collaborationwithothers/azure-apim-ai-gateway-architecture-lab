@@ -430,14 +430,6 @@ while IFS= read -r workflow; do
       fail "$rel must not require custom_domain_certificate_secret_uri as a manual workflow input"
     fi
 
-    if has_literal "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" "$workflow"; then
-      fail "$rel must not pass custom_domain_certificate_secret_uri from workflow inputs"
-    fi
-
-    if has_literal "customDomainCertificateSecretUri" "$workflow"; then
-      fail "$rel must not pass customDomainCertificateSecretUri from the deployment workflow"
-    fi
-
     if ! has_literal "vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR" "$workflow"; then
       fail "$rel must read the runner NAT CIDR from vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR"
     fi
@@ -461,6 +453,14 @@ while IFS= read -r workflow; do
       "apim-ai-gateway-lab-swc" \
       "DEPLOYMENT_NAME" \
       "deployment_name must end with -swc when deployment_location is swedencentral" \
+      "SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001" \
+      "LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com" \
+      "Infer custom domain certificate secret URI" \
+      "az keyvault certificate show" \
+      "--query sid" \
+      "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" \
+      "customDomainCertificateSecretUri=\"\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI\"" \
+      "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001" \
       "runnerAllowedPublicIp" \
       "enablePublicEdge" \
       "enableCustomDomain" \
@@ -537,13 +537,23 @@ while IFS= read -r workflow; do
       fail "$rel must be create/update only and must not include destroy mode"
     fi
 
+    if has_literal "key_vault_virtual_network_rule_subnet_ids:" "$workflow"; then
+      fail "$rel must infer Key Vault subnet rules instead of accepting subnet IDs as dispatch input"
+    fi
+
     for expected in \
       "validate" \
       "what-if" \
       "apply" \
       "infra/bicep/persistent.bicep" \
       "apim-ai-gateway-persistent-swc" \
-      "key_vault_virtual_network_rule_subnet_ids:" \
+      "HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001" \
+      "HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001" \
+      "APPGW_SUBNET_NAME: snet-appgw" \
+      "APIM_SUBNET_NAME: snet-apim" \
+      "Infer Key Vault VNet rules" \
+      "az network vnet subnet show" \
+      "Both hub Key Vault client subnets must exist, or neither should exist." \
       "KEY_VAULT_VNET_RULE_SUBNET_IDS" \
       "keyVaultVirtualNetworkRuleSubnetIds" \
       "az deployment sub what-if" \

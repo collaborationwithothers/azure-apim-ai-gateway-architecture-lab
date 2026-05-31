@@ -113,6 +113,8 @@ jobs:
     env:
       DEPLOYMENT_LOCATION: swedencentral
       DEPLOYMENT_NAME: apim-ai-gateway-lab-swc
+      SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+      LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
@@ -133,7 +135,11 @@ jobs:
           az provider show --namespace Microsoft.Insights
           az provider show --namespace Microsoft.OperationalInsights
           az provider show --namespace Microsoft.Web
-          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
+          echo "Infer custom domain certificate secret URI"
+          az keyvault certificate show --vault-name "\$SHARED_KEY_VAULT_NAME" --name "\$LAB_CERTIFICATE_NAME" --query sid -o tsv
+          echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001"
+          echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=example" >> "\$GITHUB_ENV"
+          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
   apply:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -151,6 +157,8 @@ jobs:
     env:
       DEPLOYMENT_LOCATION: swedencentral
       DEPLOYMENT_NAME: apim-ai-gateway-lab-swc
+      SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+      LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
@@ -165,7 +173,11 @@ jobs:
             exit 1
           fi
           az provider register --namespace Microsoft.Network
-          az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false
+          echo "Infer custom domain certificate secret URI"
+          az keyvault certificate show --vault-name "\$SHARED_KEY_VAULT_NAME" --name "\$LAB_CERTIFICATE_NAME" --query sid -o tsv
+          echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001"
+          echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=example" >> "\$GITHUB_ENV"
+          az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
 EOF
   cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
 name: Certificate Issue
@@ -520,6 +532,71 @@ EOF
   fi
   grep -q "must be create/update only and must not include destroy mode" \
     /tmp/workflow-guardrails-bootstrap-destroy-mode.out
+}
+
+expect_failure_for_persistent_bootstrap_subnet_input() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/bootstrap-persistent.yml" <<EOF
+name: Bootstrap Persistent
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options:
+          - validate
+          - what-if
+          - apply
+      key_vault_virtual_network_rule_subnet_ids:
+        required: true
+permissions:
+  contents: read
+env:
+  DEPLOYMENT_NAME: apim-ai-gateway-persistent-swc
+  KEY_VAULT_VNET_RULE_SUBNET_IDS: \${{ inputs.key_vault_virtual_network_rule_subnet_ids }}
+jobs:
+  apply:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'apply'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "infra/bicep/persistent.bicep"
+          echo "HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001"
+          echo "HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001"
+          echo "APPGW_SUBNET_NAME: snet-appgw"
+          echo "APIM_SUBNET_NAME: snet-apim"
+          echo "Infer Key Vault VNet rules"
+          echo "Both hub Key Vault client subnets must exist, or neither should exist."
+          echo "Microsoft.KeyVault"
+          echo "Microsoft.Network"
+          az network vnet subnet show --name snet-appgw
+          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --template-file infra/bicep/persistent.bicep
+          az deployment sub create --name "\$DEPLOYMENT_NAME" --template-file infra/bicep/persistent.bicep --parameters keyVaultVirtualNetworkRuleSubnetIds="\$KEY_VAULT_VNET_RULE_SUBNET_IDS"
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-bootstrap-subnet-input.out 2>&1; then
+    echo "expected bootstrap subnet ID input to fail" >&2
+    return 1
+  fi
+  grep -q "must infer Key Vault subnet rules instead of accepting subnet IDs as dispatch input" \
+    /tmp/workflow-guardrails-bootstrap-subnet-input.out
 }
 
 write_planned_spoke_workflow() {
@@ -1124,53 +1201,6 @@ EOF
     /tmp/workflow-guardrails-custom-domain-secret-input.out
 }
 
-expect_failure_for_custom_domain_secret_uri_forwarding() {
-  local dir
-  dir="$(mktemp -d)"
-  make_fixture "$dir"
-  cat >"$dir/.github/workflows/infra-deploy.yml" <<EOF
-name: Infra Deploy
-on:
-  workflow_dispatch:
-    inputs:
-      expected_repository:
-        required: true
-      mode:
-        type: choice
-        options: [validate, what-if, apply]
-permissions:
-  contents: read
-jobs:
-  bad:
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
-      github.actor == 'haripraghash' &&
-      github.ref == 'refs/heads/main'
-    runs-on:
-      group: consultwithcloud-azure
-      labels: [gh-linux]
-    environment: dev
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
-    steps:
-      - uses: actions/checkout@$checkout_sha
-      - uses: azure/login@$azure_login_sha
-      - run: |
-          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
-          az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" customDomainCertificateSecretUri="https://example.vault.azure.net/secrets/example"
-EOF
-  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-forward.out 2>&1; then
-    echo "expected customDomainCertificateSecretUri forwarding to fail" >&2
-    return 1
-  fi
-  grep -q "must not pass customDomainCertificateSecretUri from the deployment workflow" \
-    /tmp/workflow-guardrails-custom-domain-secret-forward.out
-}
-
 expect_failure_for_unpinned_actions() {
   local dir
   dir="$(mktemp -d)"
@@ -1577,6 +1607,7 @@ expect_success_for_guarded_destroy_workflow
 expect_success_for_planned_spoke_workflow_taxonomy
 expect_failure_for_destroy_deletes_persistent_resource_group
 expect_failure_for_persistent_bootstrap_destroy_mode
+expect_failure_for_persistent_bootstrap_subnet_input
 expect_failure_for_planned_workflow_caller_controlled_target
 expect_failure_for_azure_changing_push_trigger
 expect_failure_for_destroy_target_inputs
@@ -1589,7 +1620,6 @@ expect_failure_for_input_environment
 expect_failure_for_caller_controlled_repository_guard
 expect_failure_for_manual_runner_ip_input
 expect_failure_for_manual_custom_domain_secret_uri_input
-expect_failure_for_custom_domain_secret_uri_forwarding
 expect_failure_for_unpinned_actions
 expect_failure_for_deployment_command_in_unapproved_job
 expect_failure_for_provider_register_in_what_if

@@ -82,6 +82,9 @@ jobs:
       - name: Validate APIM diagnostic configuration
         run: bash tests/validate-apim-diagnostic-test.sh
 
+      - name: Validate subscription-scope resource IDs
+        run: bash tests/validate-subscription-scope-resource-ids-test.sh
+
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"
 
@@ -162,6 +165,9 @@ jobs:
 
       - name: Validate APIM diagnostic configuration
         run: bash tests/validate-apim-diagnostic-test.sh
+
+      - name: Validate subscription-scope resource IDs
+        run: bash tests/validate-subscription-scope-resource-ids-test.sh
 
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"
@@ -254,6 +260,9 @@ jobs:
 
       - name: Validate APIM diagnostic configuration
         run: bash tests/validate-apim-diagnostic-test.sh
+
+      - name: Validate subscription-scope resource IDs
+        run: bash tests/validate-subscription-scope-resource-ids-test.sh
 
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"

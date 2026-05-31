@@ -41,6 +41,8 @@ param runnerVnetName string = 'vnet-dv-gh-actions-neu'
 var hubRgName = 'rg-cwc-ai-gw-hub-swc-001'
 var spokeRgName = 'rg-cwc-ai-gw-spoke-swc-001'
 var hubVnetName = 'vnet-cwc-ai-gw-hub-swc-001'
+var hubVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${hubRgName}/providers/Microsoft.Network/virtualNetworks/${hubVnetName}'
+var runnerVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${runnerVnetResourceGroupName}/providers/Microsoft.Network/virtualNetworks/${runnerVnetName}'
 var publicHostname = 'api.consultwithcloud.com'
 var keyVaultName = 'kv-cwc-ai-gw-swc-001'
 var certificateSecretUri = empty(customDomainCertificateSecretUri) ? 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/cert-api-consultwithcloud-com' : customDomainCertificateSecretUri
@@ -90,8 +92,8 @@ module spoke './modules/spoke.bicep' = {
     location: location
     tags: tags
     firewallPrivateIp: hub.outputs.firewallPrivateIp
-    hubVnetId: resourceId(hubRgName, 'Microsoft.Network/virtualNetworks', hubVnetName)
-    runnerVnetId: resourceId(runnerVnetResourceGroupName, 'Microsoft.Network/virtualNetworks', runnerVnetName)
+    hubVnetId: hubVnetId
+    runnerVnetId: runnerVnetId
   }
 }
 
@@ -101,7 +103,7 @@ module hubPeerings './modules/hub-peerings.bicep' = {
   params: {
     hubVnetName: hubVnetName
     spokeVnetId: spoke.outputs.spokeVnetId
-    runnerVnetId: resourceId(runnerVnetResourceGroupName, 'Microsoft.Network/virtualNetworks', runnerVnetName)
+    runnerVnetId: runnerVnetId
   }
 }
 

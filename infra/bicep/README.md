@@ -175,11 +175,13 @@ those name servers as `NS` records for `lab` in the Cloudflare
 `consultwithcloud.com` zone. This prepares the full demo hostnames only. It
 does not issue a certificate or bind an APIM custom domain.
 
-After the hub subnets exist, rerun persistent bootstrap in `apply` mode with
-`key_vault_virtual_network_rule_subnet_ids` set to a JSON array containing the
-Application Gateway and APIM subnet resource IDs from the main deployment
-outputs. This updates the shared vault network rules without recreating the
-manual Cloudflare delegation.
+After the hub subnets exist, rerun persistent bootstrap in `apply` mode. The
+workflow looks for `snet-appgw` and `snet-apim` in
+`vnet-cwc-ai-gw-hub-swc-001`. If both exist, it passes their subnet resource
+IDs to Bicep and updates the shared vault network rules. If neither exists, it
+passes an empty array for the first bootstrap run. If only one exists, the
+workflow fails because the hub network is in a partial state. This keeps the
+manual Cloudflare delegation intact.
 
 ### Lab API Hostname Flow
 

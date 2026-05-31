@@ -537,13 +537,23 @@ while IFS= read -r workflow; do
       fail "$rel must be create/update only and must not include destroy mode"
     fi
 
+    if has_literal "key_vault_virtual_network_rule_subnet_ids:" "$workflow"; then
+      fail "$rel must infer Key Vault subnet rules instead of accepting subnet IDs as dispatch input"
+    fi
+
     for expected in \
       "validate" \
       "what-if" \
       "apply" \
       "infra/bicep/persistent.bicep" \
       "apim-ai-gateway-persistent-swc" \
-      "key_vault_virtual_network_rule_subnet_ids:" \
+      "HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001" \
+      "HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001" \
+      "APPGW_SUBNET_NAME: snet-appgw" \
+      "APIM_SUBNET_NAME: snet-apim" \
+      "Infer Key Vault VNet rules" \
+      "az network vnet subnet show" \
+      "Both hub Key Vault client subnets must exist, or neither should exist." \
       "KEY_VAULT_VNET_RULE_SUBNET_IDS" \
       "keyVaultVirtualNetworkRuleSubnetIds" \
       "az deployment sub what-if" \

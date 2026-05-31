@@ -11,7 +11,12 @@ else
   az bicep build --file "$repo_root/infra/bicep/main.bicep" --outfile "$compiled_template"
 fi
 
-required_outputs=(
+if ! grep -q '"spokeNetwork"' "$compiled_template"; then
+  echo "Compiled template is missing the top-level spokeNetwork output." >&2
+  exit 1
+fi
+
+required_contract_keys=(
   spokeVnetId
   spokeVnetName
   workloadSubnetId
@@ -21,9 +26,9 @@ required_outputs=(
   aksRouteTableId
 )
 
-for output_name in "${required_outputs[@]}"; do
-  if ! grep -q "\"$output_name\"" "$compiled_template"; then
-    echo "Compiled template is missing spoke output: $output_name" >&2
+for contract_key in "${required_contract_keys[@]}"; do
+  if ! grep -q "\"$contract_key\"" "$compiled_template"; then
+    echo "Compiled template is missing spoke contract key: $contract_key" >&2
     exit 1
   fi
 done

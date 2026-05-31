@@ -41,10 +41,11 @@ routes future spoke workload egress through Azure Firewall Standard, and sends
 diagnostics to Log Analytics. The public hostname is
 `api.consultwithcloud.com`.
 
-The spoke network exports non-sensitive IDs for its VNet, workload subnet,
-private endpoint subnet, AKS subnet, and workload or AKS route tables. These are
-contracts for later implementation slices and do not mean AKS, Redis, Foundry,
-GitOps, private endpoints, or application workloads have been deployed.
+The spoke network exports a non-sensitive `spokeNetwork` output with IDs for
+its VNet, workload subnet, private endpoint subnet, AKS subnet, and workload or
+AKS route tables. These are contracts for later implementation slices and do not
+mean AKS, Redis, Foundry, GitOps, private endpoints, or application workloads
+have been deployed.
 
 Sweden Central is the selected single-region target because Microsoft
 documentation lists it for APIM Premium v2 and for the Azure OpenAI Responses

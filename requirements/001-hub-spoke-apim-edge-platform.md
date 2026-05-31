@@ -141,8 +141,8 @@ Acceptance criteria:
   - `snet-aks`: `10.20.10.0/23`
 - Route tables send `0.0.0.0/0` from `snet-workload` and `snet-aks` to the Azure Firewall private IP.
 - `disableBgpRoutePropagation` remains `false`.
-- The deployment exposes only non-sensitive spoke network outputs for
-  downstream slices:
+- The deployment exposes a non-sensitive `spokeNetwork` output for downstream
+  slices with:
   - `spokeVnetId`
   - `spokeVnetName`
   - `workloadSubnetId`

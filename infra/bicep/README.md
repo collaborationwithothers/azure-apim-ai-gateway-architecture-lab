@@ -25,8 +25,10 @@ Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, a
 
 The spoke module exposes non-sensitive network outputs so later slices can
 attach AKS, private endpoints, Redis, Foundry, GitOps, and workload components
-without rediscovering resource IDs. These outputs are contracts for downstream
-modules and workflows. They are not proof that those downstream resources exist.
+without rediscovering resource IDs. `infra/bicep/outputs.bicep` shapes those
+values into the top-level `spokeNetwork` deployment output. These outputs are
+contracts for downstream modules and workflows. They are not proof that those
+downstream resources exist.
 
 Current spoke outputs:
 

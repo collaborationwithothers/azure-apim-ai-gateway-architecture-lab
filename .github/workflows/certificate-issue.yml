@@ -33,7 +33,7 @@ on:
       dns_propagation_seconds:
         description: Seconds to wait after creating the DNS-01 TXT record.
         required: true
-        default: "90"
+        default: "180"
 
 permissions:
   contents: read
@@ -133,20 +133,17 @@ jobs:
               exit 1
               ;;
           esac
-          az network dns record-set txt show \
-            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
-            --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$dns_record_set_name" >/dev/null 2>&1 || \
-          az network dns record-set txt create \
-            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
-            --zone-name "$DNS_ZONE_NAME" \
-            --record-set-name "$dns_record_set_name" \
-            --ttl 60
           az network dns record-set txt add-record \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
             --record-set-name "$dns_record_set_name" \
             --value "$CERTBOT_VALIDATION"
+          az network dns record-set txt show \
+            --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
+            --zone-name "$DNS_ZONE_NAME" \
+            --name "$dns_record_set_name" \
+            --query txtRecords \
+            --output json
           printf '%s\t%s\n' "$dns_record_set_name" "$CERTBOT_VALIDATION" >> "$RUNNER_TEMP/acme-challenge-values.txt"
           sleep "$DNS_PROPAGATION_SECONDS"
           SCRIPT

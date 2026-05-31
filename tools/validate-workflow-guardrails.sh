@@ -611,6 +611,8 @@ while IFS= read -r workflow; do
       "sudo apt-get install -y certbot" \
       "::add-mask::" \
       "az network dns record-set txt add-record" \
+      "az network dns record-set txt show" \
+      "--query txtRecords" \
       "az network dns record-set txt remove-record" \
       "az keyvault certificate import" \
       "openssl pkcs12"; do

@@ -231,6 +231,7 @@ jobs:
           sudo apt-get install -y certbot
           echo "::add-mask::secret"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
           az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
@@ -295,6 +296,7 @@ jobs:
           sudo apt-get install -y certbot
           echo "::add-mask::secret"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
           az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
@@ -1252,6 +1254,7 @@ jobs:
           sudo apt-get install -y certbot
           echo "::add-mask::secret"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "$KEY_VAULT_CERTIFICATE_NAME.pfx"
           az keyvault certificate import --name "$KEY_VAULT_CERTIFICATE_NAME"
@@ -1665,6 +1668,7 @@ jobs:
           echo "::add-mask::secret"
           sudo apt-get install -y jq
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
           az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"

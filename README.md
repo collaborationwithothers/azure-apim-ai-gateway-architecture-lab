@@ -162,7 +162,7 @@ step. The deployment is staged:
 3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
 4. Rerun persistent bootstrap in `apply` mode. The workflow infers the hub Application Gateway and APIM subnet IDs and updates the shared Key Vault network rules.
 5. After parent-zone delegation is in place, run the certificate workflow in staging mode.
-6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
+6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`.
 7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
 
 Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in

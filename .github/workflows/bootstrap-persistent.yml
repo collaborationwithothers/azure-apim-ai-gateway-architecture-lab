@@ -24,10 +24,6 @@ on:
         description: Azure subscription deployment name.
         required: true
         default: apim-ai-gateway-persistent-swc
-      key_vault_virtual_network_rule_subnet_ids:
-        description: JSON array of hub subnet resource IDs allowed to reach Key Vault. Use [] before hub subnets exist.
-        required: true
-        default: "[]"
 
 permissions:
   contents: read
@@ -35,8 +31,11 @@ permissions:
 env:
   DEPLOYMENT_LOCATION: ${{ inputs.deployment_location }}
   DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
-  KEY_VAULT_VNET_RULE_SUBNET_IDS: ${{ inputs.key_vault_virtual_network_rule_subnet_ids }}
   TEMPLATE_FILE: infra/bicep/persistent.bicep
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001
+  HUB_VNET_NAME: vnet-cwc-ai-gw-hub-swc-001
+  APPGW_SUBNET_NAME: snet-appgw
+  APIM_SUBNET_NAME: snet-apim
 
 jobs:
   validate:
@@ -102,7 +101,6 @@ jobs:
             echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
             exit 1
           fi
-          jq -e 'type == "array" and all(.[]; type == "string")' <<< "$KEY_VAULT_VNET_RULE_SUBNET_IDS" >/dev/null
 
       - name: Azure login with OIDC
         uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
@@ -126,6 +124,52 @@ jobs:
             fi
           done
           exit "$missing"
+
+      - name: Infer Key Vault VNet rules
+        run: |
+          set -euo pipefail
+          appgw_subnet_id=""
+          apim_subnet_id=""
+
+          if appgw_subnet_id="$(az network vnet subnet show \
+            --resource-group "$HUB_RESOURCE_GROUP_NAME" \
+            --vnet-name "$HUB_VNET_NAME" \
+            --name "$APPGW_SUBNET_NAME" \
+            --query id \
+            -o tsv 2>/dev/null)"; then
+            :
+          else
+            appgw_subnet_id=""
+          fi
+
+          if apim_subnet_id="$(az network vnet subnet show \
+            --resource-group "$HUB_RESOURCE_GROUP_NAME" \
+            --vnet-name "$HUB_VNET_NAME" \
+            --name "$APIM_SUBNET_NAME" \
+            --query id \
+            -o tsv 2>/dev/null)"; then
+            :
+          else
+            apim_subnet_id=""
+          fi
+
+          if [[ -z "$appgw_subnet_id" && -z "$apim_subnet_id" ]]; then
+            key_vault_vnet_rule_subnet_ids="[]"
+            echo "Hub subnets not found. Key Vault VNet rules will remain empty."
+          elif [[ -n "$appgw_subnet_id" && -n "$apim_subnet_id" ]]; then
+            key_vault_vnet_rule_subnet_ids="$(jq -cn \
+              --arg appgwSubnetId "$appgw_subnet_id" \
+              --arg apimSubnetId "$apim_subnet_id" \
+              '[$appgwSubnetId, $apimSubnetId]')"
+            echo "Hub subnets found. Key Vault VNet rules will include $APPGW_SUBNET_NAME and $APIM_SUBNET_NAME."
+          else
+            echo "Both hub Key Vault client subnets must exist, or neither should exist." >&2
+            echo "$APPGW_SUBNET_NAME found: $([[ -n "$appgw_subnet_id" ]] && echo yes || echo no)" >&2
+            echo "$APIM_SUBNET_NAME found: $([[ -n "$apim_subnet_id" ]] && echo yes || echo no)" >&2
+            exit 1
+          fi
+
+          echo "KEY_VAULT_VNET_RULE_SUBNET_IDS=$key_vault_vnet_rule_subnet_ids" >> "$GITHUB_ENV"
 
       - name: Restore Bicep modules
         run: az bicep restore --file "$TEMPLATE_FILE"
@@ -182,7 +226,6 @@ jobs:
             echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
             exit 1
           fi
-          jq -e 'type == "array" and all(.[]; type == "string")' <<< "$KEY_VAULT_VNET_RULE_SUBNET_IDS" >/dev/null
 
       - name: Azure login with OIDC
         uses: azure/login@1384c340ab2dda50fed2bee3041d1d87018aa5e8
@@ -200,6 +243,52 @@ jobs:
           do
             az provider register --namespace "$namespace" --wait
           done
+
+      - name: Infer Key Vault VNet rules
+        run: |
+          set -euo pipefail
+          appgw_subnet_id=""
+          apim_subnet_id=""
+
+          if appgw_subnet_id="$(az network vnet subnet show \
+            --resource-group "$HUB_RESOURCE_GROUP_NAME" \
+            --vnet-name "$HUB_VNET_NAME" \
+            --name "$APPGW_SUBNET_NAME" \
+            --query id \
+            -o tsv 2>/dev/null)"; then
+            :
+          else
+            appgw_subnet_id=""
+          fi
+
+          if apim_subnet_id="$(az network vnet subnet show \
+            --resource-group "$HUB_RESOURCE_GROUP_NAME" \
+            --vnet-name "$HUB_VNET_NAME" \
+            --name "$APIM_SUBNET_NAME" \
+            --query id \
+            -o tsv 2>/dev/null)"; then
+            :
+          else
+            apim_subnet_id=""
+          fi
+
+          if [[ -z "$appgw_subnet_id" && -z "$apim_subnet_id" ]]; then
+            key_vault_vnet_rule_subnet_ids="[]"
+            echo "Hub subnets not found. Key Vault VNet rules will remain empty."
+          elif [[ -n "$appgw_subnet_id" && -n "$apim_subnet_id" ]]; then
+            key_vault_vnet_rule_subnet_ids="$(jq -cn \
+              --arg appgwSubnetId "$appgw_subnet_id" \
+              --arg apimSubnetId "$apim_subnet_id" \
+              '[$appgwSubnetId, $apimSubnetId]')"
+            echo "Hub subnets found. Key Vault VNet rules will include $APPGW_SUBNET_NAME and $APIM_SUBNET_NAME."
+          else
+            echo "Both hub Key Vault client subnets must exist, or neither should exist." >&2
+            echo "$APPGW_SUBNET_NAME found: $([[ -n "$appgw_subnet_id" ]] && echo yes || echo no)" >&2
+            echo "$APIM_SUBNET_NAME found: $([[ -n "$apim_subnet_id" ]] && echo yes || echo no)" >&2
+            exit 1
+          fi
+
+          echo "KEY_VAULT_VNET_RULE_SUBNET_IDS=$key_vault_vnet_rule_subnet_ids" >> "$GITHUB_ENV"
 
       - name: Restore Bicep modules
         run: az bicep restore --file "$TEMPLATE_FILE"

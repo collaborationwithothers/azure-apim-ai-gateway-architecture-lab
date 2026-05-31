@@ -160,7 +160,7 @@ step. The deployment is staged:
 1. Run persistent bootstrap in `apply` mode.
 2. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
 3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
-4. Rerun persistent bootstrap in `apply` mode with the hub Application Gateway and APIM subnet IDs in `key_vault_virtual_network_rule_subnet_ids`.
+4. Rerun persistent bootstrap in `apply` mode. The workflow infers the hub Application Gateway and APIM subnet IDs and updates the shared Key Vault network rules.
 5. After parent-zone delegation is in place, run the certificate workflow in staging mode.
 6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
 7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.

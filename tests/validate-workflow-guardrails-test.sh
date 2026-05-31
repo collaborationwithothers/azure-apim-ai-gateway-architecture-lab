@@ -65,9 +65,9 @@ on:
           - what-if
           - apply
       deployment_location:
-        default: northcentralus
+        default: swedencentral
       deployment_name:
-        default: apim-ai-gateway-lab-ncus
+        default: apim-ai-gateway-lab-swc
       enable_public_edge:
         type: choice
         options:
@@ -111,15 +111,15 @@ jobs:
       contents: read
       id-token: write
     env:
-      DEPLOYMENT_LOCATION: northcentralus
-      DEPLOYMENT_NAME: apim-ai-gateway-lab-ncus
+      DEPLOYMENT_LOCATION: swedencentral
+      DEPLOYMENT_NAME: apim-ai-gateway-lab-swc
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
-          if [[ "\$DEPLOYMENT_LOCATION" == "northcentralus" && "\$DEPLOYMENT_NAME" != *-ncus ]]; then
-            echo "deployment_name must end with -ncus when deployment_location is northcentralus." >&2
+          if [[ "\$DEPLOYMENT_LOCATION" == "swedencentral" && "\$DEPLOYMENT_NAME" != *-swc ]]; then
+            echo "deployment_name must end with -swc when deployment_location is swedencentral." >&2
             exit 1
           fi
           if [[ ! "\$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
@@ -149,15 +149,15 @@ jobs:
       contents: read
       id-token: write
     env:
-      DEPLOYMENT_LOCATION: northcentralus
-      DEPLOYMENT_NAME: apim-ai-gateway-lab-ncus
+      DEPLOYMENT_LOCATION: swedencentral
+      DEPLOYMENT_NAME: apim-ai-gateway-lab-swc
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
-          if [[ "\$DEPLOYMENT_LOCATION" == "northcentralus" && "\$DEPLOYMENT_NAME" != *-ncus ]]; then
-            echo "deployment_name must end with -ncus when deployment_location is northcentralus." >&2
+          if [[ "\$DEPLOYMENT_LOCATION" == "swedencentral" && "\$DEPLOYMENT_NAME" != *-swc ]]; then
+            echo "deployment_name must end with -swc when deployment_location is swedencentral." >&2
             exit 1
           fi
           if [[ ! "\$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
@@ -225,13 +225,13 @@ on:
 permissions:
   contents: read
 env:
-  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-ncus-001
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-swc-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-ncus-001 rg-cwc-ai-gw-spoke-ncus-001
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-swc-001 rg-cwc-ai-gw-spoke-swc-001
 jobs:
   preview:
     if: >-
@@ -247,8 +247,8 @@ jobs:
     steps:
       - run: |
           echo preview
-          echo rg-cwc-ai-gw-hub-ncus-001
-          echo rg-cwc-ai-gw-spoke-ncus-001
+          echo rg-cwc-ai-gw-hub-swc-001
+          echo rg-cwc-ai-gw-spoke-swc-001
   destroy:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -303,12 +303,12 @@ on:
 permissions:
   contents: read
 env:
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-swc-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-ncus-001 rg-cwc-ai-gw-spoke-ncus-001
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-swc-001 rg-cwc-ai-gw-spoke-swc-001
 jobs:
   destroy:
     if: >-
@@ -361,8 +361,8 @@ on:
 permissions:
   contents: read
 env:
-  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-ncus-001
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-swc-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
@@ -427,7 +427,7 @@ jobs:
       group: consultwithcloud-azure
       labels: [gh-linux]
     steps:
-      - run: az group delete --name rg-cwc-ai-gw-hub-ncus-001 --yes
+      - run: az group delete --name rg-cwc-ai-gw-hub-swc-001 --yes
 EOF
   if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-outside.out 2>&1; then
     echo "expected destructive command outside guarded deployment workflow to fail" >&2
@@ -865,7 +865,7 @@ jobs:
     steps:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
-      - run: az deployment sub create --location northcentralus --template-file infra/bicep/main.bicep
+      - run: az deployment sub create --location swedencentral --template-file infra/bicep/main.bicep
 EOF
   if "$validator" --root "$dir" >/tmp/workflow-guardrails-command-env.out 2>&1; then
     echo "expected Azure-changing command in unapproved job to fail" >&2

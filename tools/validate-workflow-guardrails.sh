@@ -356,9 +356,9 @@ while IFS= read -r workflow; do
       "what-if" \
       "apply" \
       "deployment_name:" \
-      "apim-ai-gateway-lab-ncus" \
+      "apim-ai-gateway-lab-swc" \
       "DEPLOYMENT_NAME" \
-      "deployment_name must end with -ncus when deployment_location is northcentralus" \
+      "deployment_name must end with -swc when deployment_location is swedencentral" \
       "runnerAllowedPublicIp" \
       "enablePublicEdge" \
       "enableCustomDomain" \
@@ -400,8 +400,8 @@ while IFS= read -r workflow; do
       "CONFIRM_DESTROY_PHRASE" \
       "inputs.confirm_destroy" \
       "confirm_destroy must exactly match" \
-      "rg-cwc-ai-gw-hub-ncus-001" \
-      "rg-cwc-ai-gw-spoke-ncus-001" \
+      "rg-cwc-ai-gw-hub-swc-001" \
+      "rg-cwc-ai-gw-spoke-swc-001" \
       "rg-dv-gh-actions-neu" \
       "vnet-dv-gh-actions-neu" \
       "peer-to-cwc-ai-gw-hub" \

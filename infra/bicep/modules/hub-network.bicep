@@ -3,10 +3,10 @@ targetScope = 'resourceGroup'
 param location string
 param tags object
 
-var hubVnetName = 'vnet-cwc-ai-gw-hub-ncus-001'
+var hubVnetName = 'vnet-cwc-ai-gw-hub-swc-001'
 
 resource apimNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
-  name: 'nsg-apim-cwc-ai-gw-ncus-001'
+  name: 'nsg-apim-cwc-ai-gw-swc-001'
   location: location
   tags: tags
   properties: {

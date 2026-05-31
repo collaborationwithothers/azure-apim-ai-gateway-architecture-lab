@@ -1,7 +1,7 @@
 targetScope = 'subscription'
 
 @description('Azure region for all new hub-spoke platform resources.')
-param location string = 'northcentralus'
+param location string = 'swedencentral'
 
 @description('Short environment name used for tags and workflow inputs.')
 @allowed([
@@ -38,11 +38,11 @@ param runnerVnetResourceGroupName string = 'rg-dv-gh-actions-neu'
 @description('Existing self-hosted runner VNet name.')
 param runnerVnetName string = 'vnet-dv-gh-actions-neu'
 
-var hubRgName = 'rg-cwc-ai-gw-hub-ncus-001'
-var spokeRgName = 'rg-cwc-ai-gw-spoke-ncus-001'
-var hubVnetName = 'vnet-cwc-ai-gw-hub-ncus-001'
+var hubRgName = 'rg-cwc-ai-gw-hub-swc-001'
+var spokeRgName = 'rg-cwc-ai-gw-spoke-swc-001'
+var hubVnetName = 'vnet-cwc-ai-gw-hub-swc-001'
 var publicHostname = 'api.consultwithcloud.com'
-var keyVaultName = 'kv-cwc-ai-gw-ncus-001'
+var keyVaultName = 'kv-cwc-ai-gw-swc-001'
 var certificateSecretUri = empty(customDomainCertificateSecretUri) ? 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/cert-api-consultwithcloud-com' : customDomainCertificateSecretUri
 var tags = {
   workload: 'cwc-ai-gw'

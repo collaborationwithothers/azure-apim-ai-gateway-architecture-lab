@@ -85,6 +85,9 @@ jobs:
       - name: Validate subscription-scope resource IDs
         run: bash tests/validate-subscription-scope-resource-ids-test.sh
 
+      - name: Validate lab public DNS zone
+        run: bash tests/validate-lab-public-dns-zone-test.sh
+
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"
 
@@ -168,6 +171,9 @@ jobs:
 
       - name: Validate subscription-scope resource IDs
         run: bash tests/validate-subscription-scope-resource-ids-test.sh
+
+      - name: Validate lab public DNS zone
+        run: bash tests/validate-lab-public-dns-zone-test.sh
 
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"
@@ -263,6 +269,9 @@ jobs:
 
       - name: Validate subscription-scope resource IDs
         run: bash tests/validate-subscription-scope-resource-ids-test.sh
+
+      - name: Validate lab public DNS zone
+        run: bash tests/validate-lab-public-dns-zone-test.sh
 
       - name: Build Bicep
         run: az bicep build --file "$TEMPLATE_FILE"

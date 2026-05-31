@@ -6,6 +6,7 @@ param runnerAllowedPublicIp string
 param enablePublicEdge bool
 param enableCustomDomain bool
 param publicHostname string
+param labPublicDnsZoneName string
 param customDomainCertificateSecretUri string
 param deploymentAdminGroupObjectId string
 param wafAllowedSourceCidrs array
@@ -66,6 +67,7 @@ module edge './hub-edge.bicep' = {
     tags: tags
     enablePublicEdge: enablePublicEdge
     publicHostname: publicHostname
+    labPublicDnsZoneName: labPublicDnsZoneName
     customDomainCertificateSecretUri: customDomainCertificateSecretUri
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
     appGwSubnetId: network.outputs.appGwSubnetId
@@ -104,3 +106,4 @@ output keyVaultName string = security.outputs.keyVaultName
 output apimName string = apim.outputs.apimName
 output applicationGatewayName string = edge.outputs.applicationGatewayName
 output certificateSecretUri string = customDomainCertificateSecretUri
+output labPublicDnsZoneNameServers array = edge.outputs.labPublicDnsZoneNameServers

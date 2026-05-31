@@ -136,6 +136,14 @@ The edge path is:
 4. APIM Premium v2 has the same gateway custom domain and certificate from Key Vault after public DNS resolution to Application Gateway is visible.
 5. Private DNS maps the APIM gateway hostname to the APIM private IP for in-network resolution.
 
+The deployment also creates the future public DNS child zone
+`lab.consultwithcloud.com` and outputs its Azure DNS name servers. Cloudflare
+owns the parent `consultwithcloud.com` zone, so parent delegation for `lab` is a
+separate operator step. The `lab.consultwithcloud.com` zone is created before
+the future SAN certificate, APIM custom domain migration, and Application
+Gateway listeners for `api.lab.consultwithcloud.com`,
+`app.lab.consultwithcloud.com`, and `argo.lab.consultwithcloud.com`.
+
 GitHub Actions uses two manual workflows:
 
 - `infra-deploy.yml` with `mode` input `validate`, `what-if`, or `apply`.
@@ -246,6 +254,7 @@ Enabling APIM body logging improves demo observability but increases data sensit
 - [Azure VNet peering overview](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-peering-overview)
 - [Azure Monitor diagnostic settings](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/diagnostic-settings)
 - [Azure DNS alias records](https://learn.microsoft.com/en-us/azure/dns/dns-alias)
+- [Delegate a domain to Azure DNS](https://learn.microsoft.com/en-us/azure/dns/dns-delegate-domain-azure-dns)
 - [Key Vault soft delete overview](https://learn.microsoft.com/en-us/azure/key-vault/general/soft-delete-overview)
 - [Key Vault RBAC guide](https://learn.microsoft.com/en-us/azure/key-vault/general/rbac-guide)
 - [ACR authentication options](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication)

@@ -123,6 +123,13 @@ The Bicep deployment assigns the permanent deployment admin group Key Vault
 Administrator on the lab vault and AcrPush on the lab registry. The workflow
 identity must already have the management-plane permissions needed to create
 role assignments.
+The initial infrastructure deployment also creates the future
+`lab.consultwithcloud.com` Azure DNS public child zone. Copy the
+`labPublicDnsZoneNameServers` output into Cloudflare as `NS` records for the
+`lab` subdomain of `consultwithcloud.com`. This Cloudflare delegation prepares
+the later `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, and
+`argo.lab.consultwithcloud.com` hostnames only; it does not issue certificates
+or change APIM custom-domain binding.
 Use `.github/workflows/certificate-issue.yml` only after phase 1 has created the
 Azure DNS child zone and Key Vault. The certificate workflow imports a PFX
 certificate into Key Vault for Application Gateway TLS termination. The

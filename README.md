@@ -151,7 +151,7 @@ separate later infrastructure step. The deployment is two-phase:
 
 1. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
 2. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
-3. Run the certificate workflow with the confirmed lab certificate object name.
+3. After parent-zone delegation is in place, run the certificate workflow in staging mode with the confirmed lab SAN certificate object name.
 4. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`.
 5. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
 

@@ -287,7 +287,7 @@ Acceptance criteria:
 - Workflow uses OIDC, not a client secret.
 - Workflow imports the certificate using the confirmed Key Vault certificate object name.
 - Workflow imports a PFX certificate for Application Gateway TLS termination.
-- The future lab certificate object name remains an open decision and is not assigned by this requirement.
+- The future lab SAN certificate object name remains an open decision and is not assigned by this requirement.
 - Workflow has the same repository, actor, branch, runner, and environment guards as deployment.
 
 ### FR-14: GitHub Actions guardrails

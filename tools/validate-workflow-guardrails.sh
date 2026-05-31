@@ -499,10 +499,14 @@ while IFS= read -r workflow; do
       "certificate_name:" \
       "KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}" \
       "certificate_name must be a confirmed Key Vault certificate object name" \
-      "CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com" \
+      "CERTIFICATE_DOMAINS:" \
       "lab.consultwithcloud.com" \
       "api.lab.consultwithcloud.com" \
+      "app.lab.consultwithcloud.com" \
+      "argo.lab.consultwithcloud.com" \
       "_acme-challenge.api" \
+      "_acme-challenge.app" \
+      "_acme-challenge.argo" \
       "staging" \
       "production" \
       "--test-cert" \

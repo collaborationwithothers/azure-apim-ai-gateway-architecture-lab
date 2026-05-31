@@ -188,8 +188,7 @@ on:
 permissions:
   contents: read
 env:
-  CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com
-  DNS_RECORD_SET_NAME: _acme-challenge.api
+  CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
   KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}
 jobs:
   issue:
@@ -215,7 +214,11 @@ jobs:
             exit 1
           fi
           echo "api.lab.consultwithcloud.com"
+          echo "app.lab.consultwithcloud.com"
+          echo "argo.lab.consultwithcloud.com"
           echo "_acme-challenge.api"
+          echo "_acme-challenge.app"
+          echo "_acme-challenge.argo"
           echo "--test-cert"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api

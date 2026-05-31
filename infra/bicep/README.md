@@ -165,8 +165,9 @@ The APIM edge hostname is `api.lab.consultwithcloud.com`. Delegate the parent
 DNS zone `consultwithcloud.com` so `lab.consultwithcloud.com` uses the Azure DNS
 name servers created by the lab child zone. Then run
 `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT
-records in `lab.consultwithcloud.com` and import the Let's Encrypt certificate
-into Key Vault using the confirmed certificate object name. The future lab
+records in `lab.consultwithcloud.com` and import the Let's Encrypt SAN
+certificate into Key Vault using the confirmed certificate object name. Parent
+zone delegation must be in place before production issuance. The future lab SAN
 certificate object name remains an open decision until it is confirmed by the
 operator. The certificate workflow imports a PFX file because
 Application Gateway TLS termination requires PFX certificates in Key Vault.

@@ -59,6 +59,8 @@ env:
   ENABLE_PUBLIC_EDGE: ${{ inputs.enable_public_edge }}
   ENABLE_CUSTOM_DOMAIN: ${{ inputs.enable_custom_domain }}
   DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
+  SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+  LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
 
 jobs:
   validate:
@@ -166,6 +168,34 @@ jobs:
           done
           exit "$missing"
 
+      - name: Infer custom domain certificate secret URI
+        run: |
+          set -euo pipefail
+          if [[ "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
+            echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=" >> "$GITHUB_ENV"
+            echo "Public edge disabled. Certificate secret URI will remain empty."
+            exit 0
+          fi
+
+          if ! certificate_secret_id="$(az keyvault certificate show \
+            --vault-name "$SHARED_KEY_VAULT_NAME" \
+            --name "$LAB_CERTIFICATE_NAME" \
+            --query sid \
+            -o tsv 2>/dev/null)"; then
+            echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001." >&2
+            echo "Run the certificate workflow before enabling the public edge." >&2
+            exit 1
+          fi
+
+          if [[ -z "$certificate_secret_id" || "$certificate_secret_id" != */secrets/*/* ]]; then
+            echo "Key Vault certificate $LAB_CERTIFICATE_NAME did not return a valid versioned secret URI." >&2
+            exit 1
+          fi
+
+          versionless_secret_id="${certificate_secret_id%/*}"
+          echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=$versionless_secret_id" >> "$GITHUB_ENV"
+          echo "Using versionless Key Vault secret URI for $LAB_CERTIFICATE_NAME."
+
       - name: Restore Bicep modules
         run: az bicep restore --file "$TEMPLATE_FILE"
 
@@ -199,6 +229,7 @@ jobs:
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")
           fi
+          args+=(--parameters customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
           az deployment sub what-if "${args[@]}"
 
   apply:
@@ -267,6 +298,34 @@ jobs:
             az provider register --namespace "$namespace" --wait
           done
 
+      - name: Infer custom domain certificate secret URI
+        run: |
+          set -euo pipefail
+          if [[ "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
+            echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=" >> "$GITHUB_ENV"
+            echo "Public edge disabled. Certificate secret URI will remain empty."
+            exit 0
+          fi
+
+          if ! certificate_secret_id="$(az keyvault certificate show \
+            --vault-name "$SHARED_KEY_VAULT_NAME" \
+            --name "$LAB_CERTIFICATE_NAME" \
+            --query sid \
+            -o tsv 2>/dev/null)"; then
+            echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001." >&2
+            echo "Run the certificate workflow before enabling the public edge." >&2
+            exit 1
+          fi
+
+          if [[ -z "$certificate_secret_id" || "$certificate_secret_id" != */secrets/*/* ]]; then
+            echo "Key Vault certificate $LAB_CERTIFICATE_NAME did not return a valid versioned secret URI." >&2
+            exit 1
+          fi
+
+          versionless_secret_id="${certificate_secret_id%/*}"
+          echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=$versionless_secret_id" >> "$GITHUB_ENV"
+          echo "Using versionless Key Vault secret URI for $LAB_CERTIFICATE_NAME."
+
       - name: Restore Bicep modules
         run: az bicep restore --file "$TEMPLATE_FILE"
 
@@ -300,4 +359,5 @@ jobs:
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")
           fi
+          args+=(--parameters customDomainCertificateSecretUri="$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI")
           az deployment sub create "${args[@]}"

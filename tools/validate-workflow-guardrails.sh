@@ -496,14 +496,30 @@ while IFS= read -r workflow; do
 
   if [[ "$rel" == ".github/workflows/certificate-issue.yml" ]]; then
     for expected in \
-      "api.consultwithcloud.com" \
+      "certificate_name:" \
+      "KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}" \
+      "certificate_name must be a confirmed Key Vault certificate object name" \
+      "CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com" \
+      "lab.consultwithcloud.com" \
+      "api.lab.consultwithcloud.com" \
+      "_acme-challenge.api" \
+      "staging" \
+      "production" \
+      "--test-cert" \
       "az network dns record-set txt add-record" \
       "az network dns record-set txt remove-record" \
       "az keyvault certificate import" \
-      "openssl pkcs12" \
-      "cert-api-consultwithcloud-com"; do
+      "openssl pkcs12"; do
       if ! has_literal "$expected" "$workflow"; then
         fail "$rel is missing required certificate content: $expected"
+      fi
+    done
+
+    for forbidden in \
+      "api.consultwithcloud.com" \
+      "cert-api-consultwithcloud-com"; do
+      if has_literal "$forbidden" "$workflow"; then
+        fail "$rel must not keep old single-host certificate content: $forbidden"
       fi
     done
   fi

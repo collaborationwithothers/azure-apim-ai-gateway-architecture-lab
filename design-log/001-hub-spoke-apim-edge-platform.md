@@ -49,7 +49,7 @@ A: It provides the private gateway VNet injection pattern selected for this plat
 
 Q: How will public clients reach a private APIM gateway?
 
-A: Public DNS resolves `api.consultwithcloud.com` to Application Gateway WAF. Application Gateway terminates public TLS, applies WAF, and opens HTTPS to APIM through the hub VNet.
+A: Public DNS resolves `api.lab.consultwithcloud.com` to Application Gateway WAF through the `lab.consultwithcloud.com` DNS zone. Application Gateway terminates public TLS, applies WAF, and opens HTTPS to APIM through the hub VNet.
 
 Q: Is end-to-end TLS supported?
 
@@ -101,7 +101,7 @@ The deployment uses subscription-scope Bicep. `infra/bicep/main.bicep` creates t
 
 ```mermaid
 flowchart LR
-  internet[Internet clients] --> dns[Azure DNS public zone api.consultwithcloud.com]
+  internet[Internet clients] --> dns[Azure DNS public zone lab.consultwithcloud.com]
   dns --> appgw[Application Gateway WAF v2]
   appgw --> apim[APIM Premium v2 private gateway]
   apim --> spoke[Future private APIs in spoke VNet]
@@ -137,19 +137,18 @@ The spoke VNet uses:
 
 The edge path is:
 
-1. Public DNS child zone `api.consultwithcloud.com` has an apex alias `A` record to the Application Gateway public IP.
-2. Application Gateway WAF v2 uses a Key Vault PFX certificate for `api.consultwithcloud.com`.
-3. Application Gateway backend HTTPS settings use host and SNI `api.consultwithcloud.com`.
+1. Public DNS child zone `lab.consultwithcloud.com` has an `api` alias `A` record to the Application Gateway public IP.
+2. Application Gateway WAF v2 uses a Key Vault PFX certificate for `api.lab.consultwithcloud.com`.
+3. Application Gateway backend HTTPS settings use host and SNI `api.lab.consultwithcloud.com`.
 4. APIM Premium v2 has the same gateway custom domain and certificate from Key Vault after public DNS resolution to Application Gateway is visible.
 5. Private DNS maps the APIM gateway hostname to the APIM private IP for in-network resolution.
 
-The deployment also creates the future public DNS child zone
-`lab.consultwithcloud.com` and outputs its Azure DNS name servers. Cloudflare
-owns the parent `consultwithcloud.com` zone, so parent delegation for `lab` is a
-separate operator step. The `lab.consultwithcloud.com` zone is created before
-the future SAN certificate, APIM custom domain migration, and Application
-Gateway listeners for `api.lab.consultwithcloud.com`,
-`app.lab.consultwithcloud.com`, and `argo.lab.consultwithcloud.com`.
+The deployment creates the public DNS child zone `lab.consultwithcloud.com` and
+outputs its Azure DNS name servers. Cloudflare owns the parent
+`consultwithcloud.com` zone, so parent delegation for `lab` is a separate
+operator step. Let's Encrypt certificate issuance and APIM custom domain binding
+remain separate later steps. The future lab certificate object name remains
+an open decision.
 
 GitHub Actions uses two manual workflows:
 
@@ -247,7 +246,7 @@ Enabling APIM body logging improves demo observability but increases data sensit
 - Workflows have no pull request triggers.
 - Workflows include repository, actor, and branch guards.
 - Application Gateway backend health for APIM is healthy after certificate binding.
-- `https://api.consultwithcloud.com/status-0123456789abcdef` returns APIM service health through Application Gateway after DNS delegation and certificate binding.
+- `https://api.lab.consultwithcloud.com/status-0123456789abcdef` returns APIM service health through Application Gateway after DNS delegation and certificate binding.
 - Log Analytics contains Azure Firewall resource-specific tables after test traffic.
 
 ## Sources

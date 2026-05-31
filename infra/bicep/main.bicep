@@ -17,13 +17,13 @@ param expectedRepository string = 'collaborationwithothers/azure-apim-ai-gateway
 @description('Public NAT IP address of the self-hosted runner. Use CIDR notation, for example 203.0.113.10/32.')
 param runnerAllowedPublicIp string
 
-@description('Set true only after the Key Vault certificate cert-api-consultwithcloud-com exists.')
+@description('Set true only after the Key Vault certificate for api.lab.consultwithcloud.com exists and customDomainCertificateSecretUri is set.')
 param enablePublicEdge bool = false
 
-@description('Set true only after the Key Vault certificate exists and public DNS for api.consultwithcloud.com resolves to the Application Gateway public edge.')
+@description('Set true only after the Key Vault certificate exists and public DNS for api.lab.consultwithcloud.com resolves to the Application Gateway public edge.')
 param enableCustomDomain bool = false
 
-@description('Optional versionless Key Vault secret URI for the api.consultwithcloud.com PFX. Leave empty to use the lab Key Vault certificate secret.')
+@description('Optional versionless Key Vault secret URI for the api.lab.consultwithcloud.com PFX. Leave empty until the lab certificate object name is confirmed.')
 param customDomainCertificateSecretUri string = ''
 
 @description('Microsoft Entra group object ID for permanent deployment administrators that receive lab Key Vault administration and ACR push access.')
@@ -146,12 +146,19 @@ var spokeRgName = 'rg-cwc-ai-gw-spoke-swc-001'
 var hubVnetName = 'vnet-cwc-ai-gw-hub-swc-001'
 var hubVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${hubRgName}/providers/Microsoft.Network/virtualNetworks/${hubVnetName}'
 var runnerVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${runnerVnetResourceGroupName}/providers/Microsoft.Network/virtualNetworks/${runnerVnetName}'
-var publicHostname = 'api.consultwithcloud.com'
-var keyVaultName = 'kv-cwc-ai-gw-swc-001'
-var certificateSecretUri = empty(customDomainCertificateSecretUri) ? 'https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/cert-api-consultwithcloud-com' : customDomainCertificateSecretUri
+var publicHostname = apiLabHostname
+var apiLabDnsRecordName = 'api'
+var appLabDnsRecordName = 'app'
+var argoLabDnsRecordName = 'argo'
+var certificateSecretUri = customDomainCertificateSecretUri
 var spokeFullDemoContract = {
   labDns: {
     zoneName: labDnsZoneName
+    recordNames: {
+      api: apiLabDnsRecordName
+      app: appLabDnsRecordName
+      argo: argoLabDnsRecordName
+    }
     hostnames: {
       api: apiLabHostname
       app: appLabHostname
@@ -254,6 +261,7 @@ module hub './modules/hub.bicep' = {
     enableCustomDomain: enableCustomDomain
     publicHostname: publicHostname
     labPublicDnsZoneName: labDnsZoneName
+    publicDnsRecordName: apiLabDnsRecordName
     customDomainCertificateSecretUri: certificateSecretUri
     deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
@@ -305,11 +313,12 @@ output spokeResourceGroupName string = spokeRg.name
 output spokeNetwork object = deploymentOutputs.outputs.spokeNetwork
 output spokeFullDemoContract object = deploymentOutputs.outputs.spokeFullDemoContract
 output logAnalyticsWorkspaceId string = hub.outputs.logAnalyticsWorkspaceId
-output publicDnsZoneName string = publicHostname
 output keyVaultName string = hub.outputs.keyVaultName
 output apimName string = hub.outputs.apimName
 output applicationGatewayName string = hub.outputs.applicationGatewayName
 output certificateSecretUri string = certificateSecretUri
+output publicHostname string = publicHostname
 output labPublicDnsZoneName string = labDnsZoneName
 output labPublicDnsZoneNameServers array = hub.outputs.labPublicDnsZoneNameServers
+output publicDnsZoneName string = labDnsZoneName
 output expectedRepositoryGuard string = expectedRepository

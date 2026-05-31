@@ -45,6 +45,7 @@ env:
   DNS_ZONE_NAME: ${{ inputs.dns_zone_name }}
   KEY_VAULT_NAME: ${{ inputs.key_vault_name }}
   DNS_PROPAGATION_SECONDS: ${{ inputs.dns_propagation_seconds }}
+  RUNNER_ALLOWED_PUBLIC_IP: ${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
 
 jobs:
   issue:
@@ -97,6 +98,39 @@ jobs:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure runner IP is allowed on Key Vault firewall
+        run: |
+          set -euo pipefail
+          if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then
+            echo "Set RUNNER_ALLOWED_PUBLIC_IP_CIDR as a variable on the dev GitHub Environment." >&2
+            exit 1
+          fi
+          if [[ ! "$RUNNER_ALLOWED_PUBLIC_IP" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
+            echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32." >&2
+            exit 1
+          fi
+          existing_rule_count="$(az keyvault show \
+            --name "$KEY_VAULT_NAME" \
+            --query "length(properties.networkAcls.ipRules[?value=='$RUNNER_ALLOWED_PUBLIC_IP'])" \
+            --output tsv)"
+          if [[ "$existing_rule_count" == "0" ]]; then
+            az keyvault network-rule add \
+              --name "$KEY_VAULT_NAME" \
+              --ip-address "$RUNNER_ALLOWED_PUBLIC_IP" \
+              --only-show-errors
+          fi
+          for attempt in {1..12}; do
+            if az keyvault certificate list \
+              --vault-name "$KEY_VAULT_NAME" \
+              --maxresults 1 \
+              --only-show-errors >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Key Vault firewall did not allow the runner IP within the expected time." >&2
+          exit 1
 
       - name: Issue certificate with ACME DNS-01
         env:

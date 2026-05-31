@@ -199,6 +199,7 @@ permissions:
 env:
   CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
   KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+  RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
 jobs:
   issue:
     if: >-
@@ -223,6 +224,7 @@ jobs:
           echo "argo.lab.consultwithcloud.com"
           echo "rg-cwc-ai-gw-shared-swc-001"
           echo "kv-cwc-aigw-shr-swc-001"
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value"
           echo "_acme-challenge.api"
           echo "_acme-challenge.app"
           echo "_acme-challenge.argo"
@@ -230,6 +232,7 @@ jobs:
           echo "Install certbot if missing"
           sudo apt-get install -y certbot
           echo "::add-mask::secret"
+          az keyvault network-rule add --name kv-cwc-aigw-shr-swc-001 --ip-address "\$RUNNER_ALLOWED_PUBLIC_IP"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
@@ -263,6 +266,7 @@ permissions:
 env:
   CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
   KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+  RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
 jobs:
   issue:
     if: >-
@@ -284,6 +288,7 @@ jobs:
       - run: |
           echo "rg-cwc-ai-gw-shared-swc-001"
           echo "kv-cwc-aigw-shr-swc-001"
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value"
           echo "lab.consultwithcloud.com"
           echo "api.lab.consultwithcloud.com"
           echo "app.lab.consultwithcloud.com"
@@ -295,6 +300,7 @@ jobs:
           echo "Install certbot if missing"
           sudo apt-get install -y certbot
           echo "::add-mask::secret"
+          az keyvault network-rule add --name kv-cwc-aigw-shr-swc-001 --ip-address "\$RUNNER_ALLOWED_PUBLIC_IP"
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api

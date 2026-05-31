@@ -30,7 +30,7 @@ Build a subscription-scope Bicep deployment that creates the hub and spoke resou
 
 ### Executive summary
 
-The target platform uses Application Gateway WAF v2 as the public entry point for `api.consultwithcloud.com`, forwards HTTPS traffic privately to APIM Premium v2 in the hub VNet, and keeps APIM management through Azure portal, ARM, and GitHub Actions. Azure Firewall Standard controls spoke workload and future AKS outbound traffic. Log Analytics receives diagnostics from deployed platform resources. GitHub Actions uses manual dispatch, OIDC, runner group `consultwithcloud-azure` with label `[gh-linux]`, environment approval, and strict job guards.
+The target platform uses Application Gateway WAF v2 as the public entry point for `api.lab.consultwithcloud.com`, forwards HTTPS traffic privately to APIM Premium v2 in the hub VNet, and keeps APIM management through Azure portal, ARM, and GitHub Actions. Azure Firewall Standard controls spoke workload and future AKS outbound traffic. Log Analytics receives diagnostics from deployed platform resources. GitHub Actions uses manual dispatch, OIDC, runner group `consultwithcloud-azure` with label `[gh-linux]`, environment approval, and strict job guards.
 
 ## Stakeholders
 
@@ -52,8 +52,7 @@ The target platform uses Application Gateway WAF v2 as the public entry point fo
 - Azure Firewall Standard, Firewall Policy, public IP, and structured diagnostics.
 - Application Gateway WAF v2 in Prevention mode.
 - APIM Premium v2 with VNet injection in the hub.
-- Public DNS child zone `api.consultwithcloud.com` for the current edge path.
-- Public DNS child zone `lab.consultwithcloud.com` for future full demo hostnames.
+- Public DNS child zone `lab.consultwithcloud.com` for the lab edge and full demo hostnames.
 - Key Vault Standard with soft delete and purge protection.
 - Let's Encrypt certificate issuance workflow using ACME DNS-01 and Key Vault import.
 - ACR Premium with admin user disabled, diagnostics, and public IP firewall restriction.
@@ -187,7 +186,7 @@ Acceptance criteria:
 
 ### FR-7: Application Gateway WAF
 
-Description: Deploy Application Gateway WAF v2 as the public entry point for `api.consultwithcloud.com`.
+Description: Deploy Application Gateway WAF v2 as the public entry point for `api.lab.consultwithcloud.com`.
 
 Rationale: APIM Premium v2 gateway is privately reachable through VNet injection, so public ingress needs a reverse proxy and WAF.
 
@@ -195,9 +194,9 @@ Acceptance criteria:
 
 - WAF mode is `Prevention`.
 - Autoscale is enabled with minimum `1` and maximum `3`.
-- Listener hostname is `api.consultwithcloud.com`.
+- Listener hostname is `api.lab.consultwithcloud.com`.
 - Listener uses the Key Vault certificate after certificate import.
-- Backend uses HTTPS to APIM with host/SNI `api.consultwithcloud.com`.
+- Backend uses HTTPS to APIM with host/SNI `api.lab.consultwithcloud.com`.
 - Health probe uses APIM gateway health path `/status-0123456789abcdef`.
 - WAF source allow lists are parameterized.
 - No initial WAF exclusions are configured.
@@ -212,7 +211,7 @@ Acceptance criteria:
 
 - SKU is `PremiumV2` with `1` initial unit.
 - APIM subnet is `snet-apim`.
-- APIM gateway custom domain is bound to `api.consultwithcloud.com` after the certificate exists and public DNS resolution to Application Gateway is visible.
+- APIM gateway custom domain is bound to `api.lab.consultwithcloud.com` after the certificate exists and public DNS resolution to Application Gateway is visible.
 - Publisher name is `Consult With Cloud`.
 - Publisher email is `hari.s@consultwithcloud.com`.
 - APIM has system-assigned managed identity.
@@ -228,7 +227,7 @@ Rationale: The public edge terminates TLS for WAF inspection, then re-encrypts t
 
 Acceptance criteria:
 
-- The same Let's Encrypt certificate for `api.consultwithcloud.com` is stored in Key Vault and referenced by Application Gateway and APIM.
+- The same Let's Encrypt certificate for `api.lab.consultwithcloud.com` is stored in Key Vault and referenced by Application Gateway and APIM.
 - Key Vault certificate references use versionless secret URIs where supported.
 - Backend HTTPS settings preserve the expected host/SNI.
 - mTLS is not enabled in the first pass.
@@ -241,10 +240,9 @@ Rationale: Public clients resolve Application Gateway, while Application Gateway
 
 Acceptance criteria:
 
-- Public DNS child zone `api.consultwithcloud.com` exists in Azure DNS.
-- Public DNS child zone `lab.consultwithcloud.com` exists in Azure DNS for future full demo hostnames.
+- Public DNS child zone `lab.consultwithcloud.com` exists in Azure DNS.
 - The deployment outputs the Azure DNS name servers required to delegate `lab.consultwithcloud.com` from Cloudflare.
-- Apex `A` record in that child zone is an alias to the Application Gateway public IP.
+- `api` A record in that child zone is an alias to the Application Gateway public IP.
 - A private DNS zone or equivalent private record maps APIM gateway hostname to the APIM private IP and is linked to the hub VNet.
 - No Azure DNS Private Resolver is deployed.
 
@@ -287,8 +285,9 @@ Acceptance criteria:
 
 - Workflow is `workflow_dispatch` only.
 - Workflow uses OIDC, not a client secret.
-- Workflow imports certificate as `cert-api-consultwithcloud-com`.
+- Workflow imports the certificate using the confirmed Key Vault certificate object name.
 - Workflow imports a PFX certificate for Application Gateway TLS termination.
+- The future lab certificate object name remains an open decision and is not assigned by this requirement.
 - Workflow has the same repository, actor, branch, runner, and environment guards as deployment.
 
 ### FR-14: GitHub Actions guardrails
@@ -415,7 +414,7 @@ README, infra README, requirements, design log, and ExecPlan must remain aligned
 
 - The deployment identity can be granted `Contributor` at subscription scope and an additional role assignment-capable role where needed before the template creates scoped role assignments.
 - The existing self-hosted runner is reachable through the runner VNet and has Azure CLI, Bicep, and required certificate tooling installed or installable.
-- The parent DNS zone `consultwithcloud.com` can delegate `api.consultwithcloud.com` and `lab.consultwithcloud.com` to Azure DNS name servers.
+- The parent DNS zone `consultwithcloud.com` can delegate `lab.consultwithcloud.com` to Azure DNS name servers.
 - APIM Premium v2 capacity and the required Azure OpenAI model quota are available in `swedencentral` at deployment time.
 
 ## Sources

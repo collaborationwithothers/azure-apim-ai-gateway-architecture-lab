@@ -73,6 +73,12 @@ Issue #29 remains the first implementation dependency because the
 `lab.consultwithcloud.com` public DNS zone must exist before later hostname,
 certificate, and listener work depends on it.
 
+Issue #33 moves the active public API hostname contract to
+`api.lab.consultwithcloud.com`, keeps `lab.consultwithcloud.com` as the DNS
+zone, and carries explicit `api`, `app`, and `argo` record labels. The future
+lab certificate object name remains unresolved. Let's Encrypt certificate
+issuance and APIM custom domain binding are still separate later steps.
+
 AVM fit for issue #32 was checked against the AVM Bicep module index. No AVM or
 local resource module is added for issue #32 because this slice defines only
 parameters and non-sensitive outputs. Later resource slices must repeat the AVM
@@ -86,6 +92,9 @@ fit check before adding resource modules.
 - Update Bicep to parameterize the lab DNS zone, public hostnames, SAN certificate secret URI, Foundry or model deployment settings, AKS settings, Redis settings, and GitOps settings.
 - Extend Application Gateway with separate HTTPS listeners and routing rules for `api`, `app`, and `argo` under `lab.consultwithcloud.com`.
 - Update the certificate workflow to issue and import a SAN certificate covering all three lab hostnames.
+  Production certificate issuance must not run until parent-zone delegation for
+  `lab.consultwithcloud.com` is in place. Use ACME staging mode first to verify
+  DNS challenge records and Key Vault import access.
 - Add AKS with Azure CNI Overlay, `userDefinedRouting`, lowest-cost development posture, and ACR pull access.
 - Add upstream Istio installation through GitOps or bootstrap Helm values, with an internal ingress gateway service.
 - Add Argo CD through the Azure extension, configure Entra OIDC, RBAC, and public WAF routing.

@@ -44,7 +44,7 @@ jobs:
     steps:
       - run: echo ok
 EOF
-  "$validator" --root "$dir" >/tmp/workflow-guardrails-success.out
+  bash "$validator" --root "$dir" >/tmp/workflow-guardrails-success.out
 }
 
 expect_success_for_guarded_deployment_workflows() {
@@ -174,8 +174,23 @@ on:
     inputs:
       expected_repository:
         required: true
+      certificate_name:
+        required: true
+        description: Confirmed Key Vault certificate object name.
+      dns_zone_name:
+        default: lab.consultwithcloud.com
+      acme_server:
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
 permissions:
   contents: read
+env:
+  CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com
+  DNS_RECORD_SET_NAME: _acme-challenge.api
+  KEY_VAULT_CERTIFICATE_NAME: \${{ inputs.certificate_name }}
 jobs:
   issue:
     if: >-
@@ -195,13 +210,19 @@ jobs:
       - uses: actions/checkout@$checkout_sha
       - uses: azure/login@$azure_login_sha
       - run: |
-          echo api.consultwithcloud.com
-          az network dns record-set txt add-record --record-set-name _acme-challenge
-          az network dns record-set txt remove-record --record-set-name _acme-challenge
-          openssl pkcs12 -export -out certificate.pfx
-          az keyvault certificate import --name cert-api-consultwithcloud-com
+          if [[ ! "\$KEY_VAULT_CERTIFICATE_NAME" =~ ^[A-Za-z0-9-]{1,127}$ ]]; then
+            echo "certificate_name must be a confirmed Key Vault certificate object name using only letters, numbers, and hyphens." >&2
+            exit 1
+          fi
+          echo "api.lab.consultwithcloud.com"
+          echo "_acme-challenge.api"
+          echo "--test-cert"
+          az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
 EOF
-  "$validator" --root "$dir" >/tmp/workflow-guardrails-deploy-success.out
+  bash "$validator" --root "$dir" >/tmp/workflow-guardrails-deploy-success.out
 }
 
 expect_success_for_guarded_destroy_workflow() {
@@ -279,7 +300,7 @@ jobs:
           az group delete --name "\$SPOKE_RESOURCE_GROUP_NAME" --yes
           az group delete --name "\$HUB_RESOURCE_GROUP_NAME" --yes
 EOF
-  "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-success.out
+  bash "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-success.out
 }
 
 write_planned_spoke_workflow() {
@@ -336,7 +357,7 @@ expect_success_for_planned_spoke_workflow_taxonomy() {
   write_planned_spoke_workflow "$dir/.github/workflows/lab-certificate-issue.yml" \
     "az keyvault certificate import --vault-name kv-cwc-ai-gw-swc-001 --name cert-lab-consultwithcloud-com"
 
-  "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-spoke-success.out
+  bash "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-spoke-success.out
 }
 
 expect_failure_for_planned_workflow_caller_controlled_target() {
@@ -374,7 +395,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az aks stop --resource-group rg-cwc-ai-gw-spoke-swc-001 --name "\${{ inputs.aks_cluster_name }}"
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-target-input.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-target-input.out 2>&1; then
     echo "expected caller-controlled planned workflow target to fail" >&2
     return 1
   fi
@@ -417,7 +438,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az acr build --registry acrcwcaigwswc001 --image bff:sha .
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-push-trigger.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-push-trigger.out 2>&1; then
     echo "expected Azure-changing push trigger to fail" >&2
     return 1
   fi
@@ -479,7 +500,7 @@ jobs:
           az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
           az group delete --name "\${{ inputs.hub_resource_group_name }}" --yes
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-target-input.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-target-input.out 2>&1; then
     echo "expected caller-controlled destroy target input to fail" >&2
     return 1
   fi
@@ -534,7 +555,7 @@ jobs:
           az group delete --name "\$SPOKE_RESOURCE_GROUP_NAME" --yes
           az group delete --name "\$HUB_RESOURCE_GROUP_NAME" --yes
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-confirm.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-confirm.out 2>&1; then
     echo "expected destroy workflow without confirmation check to fail" >&2
     return 1
   fi
@@ -572,7 +593,7 @@ jobs:
     steps:
       - run: az group delete --name rg-cwc-ai-gw-hub-swc-001 --yes
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-outside.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-outside.out 2>&1; then
     echo "expected destructive command outside guarded deployment workflow to fail" >&2
     return 1
   fi
@@ -612,7 +633,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az deployment sub what-if
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-oidc.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-oidc.out 2>&1; then
     echo "expected deployment workflow without id-token permission to fail" >&2
     return 1
   fi
@@ -653,7 +674,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az deployment sub what-if
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-top-oidc.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-top-oidc.out 2>&1; then
     echo "expected workflow-level id-token permission to fail" >&2
     return 1
   fi
@@ -692,7 +713,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az keyvault certificate import --name cert-api-consultwithcloud-com
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-environment.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-environment.out 2>&1; then
     echo "expected Azure-changing workflow without environment to fail" >&2
     return 1
   fi
@@ -734,7 +755,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az keyvault certificate import --name cert-api-consultwithcloud-com
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-input-environment.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-input-environment.out 2>&1; then
     echo "expected caller-controlled environment to fail" >&2
     return 1
   fi
@@ -777,7 +798,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az deployment sub create
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-repo.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-repo.out 2>&1; then
     echo "expected caller-controlled repository guard to fail" >&2
     return 1
   fi
@@ -826,7 +847,7 @@ jobs:
           echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
           az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP"
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-runner-input.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-runner-input.out 2>&1; then
     echo "expected manual runner_allowed_public_ip input to fail" >&2
     return 1
   fi
@@ -876,7 +897,7 @@ jobs:
           echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
           az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-input.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-input.out 2>&1; then
     echo "expected manual custom_domain_certificate_secret_uri input to fail" >&2
     return 1
   fi
@@ -923,7 +944,7 @@ jobs:
           echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value, for example 203.0.113.10/32."
           az deployment sub create --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" customDomainCertificateSecretUri="https://example.vault.azure.net/secrets/example"
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-forward.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-custom-domain-secret-forward.out 2>&1; then
     echo "expected customDomainCertificateSecretUri forwarding to fail" >&2
     return 1
   fi
@@ -962,13 +983,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/login@v2
       - run: |
-          echo api.consultwithcloud.com
-          az network dns record-set txt add-record --record-set-name _acme-challenge
-          az network dns record-set txt remove-record --record-set-name _acme-challenge
-          openssl pkcs12 -export -out certificate.pfx
-          az keyvault certificate import --name cert-api-consultwithcloud-com
+          if [[ ! "$KEY_VAULT_CERTIFICATE_NAME" =~ ^[A-Za-z0-9-]{1,127}$ ]]; then
+            echo "certificate_name must be a confirmed Key Vault certificate object name using only letters, numbers, and hyphens." >&2
+            exit 1
+          fi
+          echo "--test-cert"
+          echo lab.consultwithcloud.com
+          echo api.lab.consultwithcloud.com
+          echo app.lab.consultwithcloud.com
+          echo argo.lab.consultwithcloud.com
+          echo "_acme-challenge.api"
+          echo "_acme-challenge.app"
+          echo "_acme-challenge.argo"
+          echo "--test-cert"
+          az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          openssl pkcs12 -export -out "$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          az keyvault certificate import --name "$KEY_VAULT_CERTIFICATE_NAME"
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-pinning.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-pinning.out 2>&1; then
     echo "expected unpinned actions to fail" >&2
     return 1
   fi
@@ -1010,7 +1043,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az deployment sub create --location swedencentral --template-file infra/bicep/main.bicep
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-command-env.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-command-env.out 2>&1; then
     echo "expected Azure-changing command in unapproved job to fail" >&2
     return 1
   fi
@@ -1055,7 +1088,7 @@ jobs:
           az provider register --namespace Microsoft.Network
           az deployment sub what-if
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-provider-what-if.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-provider-what-if.out 2>&1; then
     echo "expected provider register in what-if to fail" >&2
     return 1
   fi
@@ -1098,7 +1131,7 @@ jobs:
       - uses: azure/login@$azure_login_sha
       - run: az deployment sub create
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-actor.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-actor.out 2>&1; then
     echo "expected deployment workflow without hard-coded actor guard to fail" >&2
     return 1
   fi
@@ -1120,7 +1153,7 @@ jobs:
     steps:
       - run: echo bad
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-pr.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-pr.out 2>&1; then
     echo "expected pull_request trigger to fail" >&2
     return 1
   fi
@@ -1142,7 +1175,7 @@ jobs:
     steps:
       - run: echo bad
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-guard.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-guard.out 2>&1; then
     echo "expected missing job guard to fail" >&2
     return 1
   fi
@@ -1180,7 +1213,7 @@ jobs:
     steps:
       - run: echo bad
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-runner.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-runner.out 2>&1; then
     echo "expected GitHub-hosted runner to fail" >&2
     return 1
   fi
@@ -1230,7 +1263,7 @@ jobs:
     steps:
       - run: echo bad
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-mixed-runner.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-mixed-runner.out 2>&1; then
     echo "expected mixed runner jobs to fail" >&2
     return 1
   fi
@@ -1272,7 +1305,7 @@ jobs:
     steps:
       - run: echo bypass
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-runner-bypass.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-runner-bypass.out 2>&1; then
     echo "expected runner group keys outside runs-on to fail" >&2
     return 1
   fi
@@ -1313,7 +1346,7 @@ jobs:
     steps:
       - run: sudo apt-get update
 EOF
-  if "$validator" --root "$dir" >/tmp/workflow-guardrails-mutate.out 2>&1; then
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-mutate.out 2>&1; then
     echo "expected runner mutation to fail" >&2
     return 1
   fi

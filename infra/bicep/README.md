@@ -75,7 +75,7 @@ Unresolved decisions for later issues:
 
 - Redis product choice remains unresolved.
 - model availability remains unresolved and must be checked live before deployment.
-- certificate name remains unresolved for the future lab SAN certificate.
+- certificate name remains unresolved for the lab certificate.
 - Argo SSO groups remain unresolved.
 - BFF app registration remains unresolved.
 
@@ -99,7 +99,7 @@ GitOps, private endpoint, or workload modules.
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
 | `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
-| `customDomainCertificateSecretUri` | Optional Bicep override for the versionless certificate secret URI. Leave empty for the lab default, which the GitHub deployment workflow does. |
+| `customDomainCertificateSecretUri` | Optional versionless certificate secret URI. Leave empty until the lab certificate object name is confirmed and certificate issuance is complete. |
 | `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
@@ -131,19 +131,15 @@ The existing runner VNet is referenced, not recreated, in `rg-dv-gh-actions-neu`
 
 ## Public DNS Zones
 
-The template creates two Azure DNS public child zones:
+The template creates the Azure DNS public child zone
+`lab.consultwithcloud.com`. That zone, not `api.lab.consultwithcloud.com`, is
+the DNS zone. The public API record is the `api` label under that zone.
 
-- Current edge zone: `api.consultwithcloud.com`
-- Future lab zone: `lab.consultwithcloud.com`
-
-Issue #29 adds only the future lab zone. The `lab.consultwithcloud.com` zone is
-created before certificates, APIM custom domain binding, or Application Gateway
-listener changes depend on it. It has no records in this slice. Use the
-`labPublicDnsZoneNameServers` deployment output to create `NS` records for
-`lab` in Cloudflare, which owns the parent `consultwithcloud.com` zone.
+Use the `labPublicDnsZoneNameServers` deployment output to create `NS` records
+for `lab` in Cloudflare, which owns the parent `consultwithcloud.com` zone.
 Cloudflare delegation is an operator action and is not performed by Bicep.
 
-Future issues will add records and bindings for:
+The lab hostname contract is:
 
 - `api.lab.consultwithcloud.com`
 - `app.lab.consultwithcloud.com`
@@ -152,7 +148,7 @@ Future issues will add records and bindings for:
 ## Deployment Flow
 
 Run phase 1 with `enablePublicEdge = false` and `enableCustomDomain = false`.
-This creates the hub and spoke foundations, DNS child zones, Key Vault, APIM,
+This creates the hub and spoke foundations, DNS child zone, Key Vault, APIM,
 Log Analytics, ACR, Firewall, and peerings without binding the
 certificate-dependent edge resources.
 
@@ -160,27 +156,24 @@ certificate-dependent edge resources.
 
 After phase 1 completes, copy the `labPublicDnsZoneNameServers` output and add
 those name servers as `NS` records for `lab` in the Cloudflare
-`consultwithcloud.com` zone. This prepares the future full demo hostnames only;
-it does not issue a certificate, bind an APIM custom domain, or add Application
-Gateway listeners for the `lab.consultwithcloud.com` names.
+`consultwithcloud.com` zone. This prepares the full demo hostnames only. It
+does not issue a certificate or bind an APIM custom domain.
 
-### Current Edge Hostname Flow
+### Lab API Hostname Flow
 
-The current APIM edge hostname remains `api.consultwithcloud.com`. That hostname
-is separate from issue #29 and will stay until a later issue migrates the edge
-to `api.lab.consultwithcloud.com`.
-
-Delegate the parent DNS zone `consultwithcloud.com` so
-`api.consultwithcloud.com` uses the Azure DNS name servers created in the
-current edge child zone. Then run `.github/workflows/certificate-issue.yml` to
-create temporary ACME DNS-01 TXT records and import the Let's Encrypt
-certificate into Key Vault as `cert-api-consultwithcloud-com`. The certificate
-workflow imports a PFX file because Application Gateway TLS termination requires
-PFX certificates in Key Vault.
+The APIM edge hostname is `api.lab.consultwithcloud.com`. Delegate the parent
+DNS zone `consultwithcloud.com` so `lab.consultwithcloud.com` uses the Azure DNS
+name servers created by the lab child zone. Then run
+`.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT
+records in `lab.consultwithcloud.com` and import the Let's Encrypt certificate
+into Key Vault using the confirmed certificate object name. The future lab
+certificate object name remains an open decision until it is confirmed by the
+operator. The certificate workflow imports a PFX file because
+Application Gateway TLS termination requires PFX certificates in Key Vault.
 
 Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
 
-Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.consultwithcloud.com` resolves to Application Gateway. This binds `api.consultwithcloud.com` on APIM and creates the private APIM resolution record.
+Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.lab.consultwithcloud.com` resolves to Application Gateway. This binds `api.lab.consultwithcloud.com` on APIM and creates the private APIM resolution record. Let's Encrypt certificate issuance and APIM custom domain binding remain separate steps.
 
 ## Destroy Flow
 
@@ -201,7 +194,7 @@ The workflow does not delete the runner VNet, the runner resource group, the
 parent DNS delegation, subscription deployment history, or unrelated tagged
 resources. Key Vault purge protection may keep `kv-cwc-ai-gw-swc-001`
 reserved after the hub resource group is deleted. Parent DNS delegation for
-`api.consultwithcloud.com` may need manual cleanup outside this workflow.
+`lab.consultwithcloud.com` may need manual cleanup outside this workflow.
 
 ## Local Validation
 
@@ -246,11 +239,17 @@ Run apply:
       --template-file infra/bicep/main.bicep \
       --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
 
-For phase 2, set `enablePublicEdge=true` after `cert-api-consultwithcloud-com` exists in Key Vault. For phase 3, keep `enablePublicEdge=true` and set `enableCustomDomain=true` after public DNS resolution is visible. The certificate workflow uses the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for Key Vault certificate operations.
+For phase 2, set `enablePublicEdge=true` after the confirmed lab
+certificate exists in Key Vault and `customDomainCertificateSecretUri` points to
+its versionless secret URI. For phase 3, keep `enablePublicEdge=true` and set
+`enableCustomDomain=true` after public DNS resolution is visible. The
+certificate workflow uses the same OIDC identity path as the infrastructure
+workflow and relies on deployment admin group membership for Key Vault
+certificate operations.
 
 Use the guarded workflow for normal operation. Manual commands are for local operator preflight only.
 
-To inspect the future lab zone delegation values after an apply, read the
+To inspect the lab zone delegation values after an apply, read the
 subscription deployment output:
 
     az deployment sub show \
@@ -282,12 +281,11 @@ decision.
 ## AVM Decision
 
 This pass uses the pinned Azure Verified Module
-`br/public:avm/res/network/dns-zone:0.6.0` for the future
+`br/public:avm/res/network/dns-zone:0.6.0` for the
 `lab.consultwithcloud.com` public DNS zone because that resource is an isolated
-fit and exposes the assigned Azure DNS name servers as an output. The current
-`api.consultwithcloud.com` zone and alias record remain local raw Bicep because
-they are wired directly to the Application Gateway public IP in the existing
-edge slice.
+fit and exposes the assigned Azure DNS name servers as an output. The `api`
+alias record remains local raw Bicep because it is wired directly to the
+Application Gateway public IP in the edge slice.
 
 The rest of the deployment uses local raw Bicep resources. The deployment needs
 tight cross-resource wiring for APIM private gateway, Application Gateway,
@@ -302,7 +300,8 @@ first successful what-if and apply.
 - Management-plane role assignment permissions for the workflow identity before first deployment.
 - `dev` GitHub Environment approval setup for Azure-changing jobs.
 - Azure federated identity credentials for GitHub OIDC.
-- Parent DNS zone delegation for `api.consultwithcloud.com`.
+- Parent DNS zone delegation for `lab.consultwithcloud.com`.
+- Confirmed Key Vault object name for the lab certificate.
 - Confirmation that APIM Premium v2 capacity and required Azure OpenAI model quota are available in `swedencentral` at deployment time.
 
 ## Data Warning

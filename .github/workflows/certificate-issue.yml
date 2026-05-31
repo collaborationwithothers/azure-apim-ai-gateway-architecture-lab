@@ -18,14 +18,17 @@ on:
       contact_email:
         description: ACME registration email.
         required: true
+      certificate_name:
+        description: Confirmed Key Vault certificate object name for the lab API certificate.
+        required: true
       dns_zone_resource_group:
         description: Resource group that owns the Azure DNS zone.
         required: true
         default: rg-cwc-ai-gw-hub-swc-001
       dns_zone_name:
-        description: Azure DNS zone for the API hostname.
+        description: Azure DNS zone for the lab hostnames.
         required: true
-        default: api.consultwithcloud.com
+        default: lab.consultwithcloud.com
       key_vault_name:
         description: Key Vault that receives the issued certificate.
         required: true
@@ -39,9 +42,9 @@ permissions:
   contents: read
 
 env:
-  CERTIFICATE_DOMAIN: api.consultwithcloud.com
-  DNS_RECORD_SET_NAME: _acme-challenge
-  KEY_VAULT_CERTIFICATE_NAME: cert-api-consultwithcloud-com
+  CERTIFICATE_DOMAIN: api.lab.consultwithcloud.com
+  DNS_RECORD_SET_NAME: _acme-challenge.api
+  KEY_VAULT_CERTIFICATE_NAME: ${{ inputs.certificate_name }}
   DNS_ZONE_RESOURCE_GROUP: ${{ inputs.dns_zone_resource_group }}
   DNS_ZONE_NAME: ${{ inputs.dns_zone_name }}
   KEY_VAULT_NAME: ${{ inputs.key_vault_name }}
@@ -90,8 +93,12 @@ jobs:
           ACME_SERVER: ${{ inputs.acme_server }}
         run: |
           set -euo pipefail
-          if [[ "$DNS_ZONE_NAME" != "$CERTIFICATE_DOMAIN" ]]; then
-            echo "This workflow is scoped only to the api.consultwithcloud.com Azure DNS zone." >&2
+          if [[ "$DNS_ZONE_NAME" != "lab.consultwithcloud.com" ]]; then
+            echo "This workflow is scoped only to the lab.consultwithcloud.com Azure DNS zone." >&2
+            exit 1
+          fi
+          if [[ ! "$KEY_VAULT_CERTIFICATE_NAME" =~ ^[A-Za-z0-9-]{1,127}$ ]]; then
+            echo "certificate_name must be a confirmed Key Vault certificate object name using only letters, numbers, and hyphens." >&2
             exit 1
           fi
 
@@ -130,6 +137,10 @@ jobs:
           cat > "$cleanup_hook" <<'SCRIPT'
           #!/usr/bin/env bash
           set -euo pipefail
+          if [[ "$CERTBOT_DOMAIN" != "$CERTIFICATE_DOMAIN" ]]; then
+            echo "Unexpected ACME domain during cleanup: $CERTBOT_DOMAIN" >&2
+            exit 1
+          fi
           az network dns record-set txt remove-record \
             --resource-group "$DNS_ZONE_RESOURCE_GROUP" \
             --zone-name "$DNS_ZONE_NAME" \
@@ -143,7 +154,6 @@ jobs:
           if [[ "$ACME_SERVER" == "staging" ]]; then
             server_args+=(--test-cert)
           fi
-
           certbot certonly \
             --manual \
             --preferred-challenges dns \

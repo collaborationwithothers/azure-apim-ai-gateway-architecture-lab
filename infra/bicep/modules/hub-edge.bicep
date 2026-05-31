@@ -5,6 +5,7 @@ param tags object
 param enablePublicEdge bool
 param publicHostname string
 param labPublicDnsZoneName string
+param publicDnsRecordName string
 param customDomainCertificateSecretUri string
 param wafAllowedSourceCidrs array
 param appGwSubnetId string
@@ -12,6 +13,7 @@ param appGwIdentityId string
 
 var applicationGatewayName = 'agw-cwc-ai-gw-swc-001'
 var healthPath = '/status-0123456789abcdef'
+var appGatewayCertificateName = 'public-edge-certificate'
 
 resource appGwPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
   name: 'pip-agw-cwc-ai-gw-swc-001'
@@ -26,10 +28,8 @@ resource appGwPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
   }
 }
 
-resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
-  name: publicHostname
-  location: 'global'
-  tags: tags
+resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' existing = {
+  name: labPublicDnsZoneName
 }
 
 module labPublicDnsZone 'br/public:avm/res/network/dns-zone:0.6.0' = {
@@ -129,7 +129,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
     ]
     sslCertificates: [
       {
-        name: 'cert-api-consultwithcloud-com'
+        name: appGatewayCertificateName
         properties: {
           keyVaultSecretId: customDomainCertificateSecretUri
         }
@@ -195,7 +195,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
           protocol: 'Https'
           hostName: publicHostname
           sslCertificate: {
-            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', applicationGatewayName, 'cert-api-consultwithcloud-com')
+            id: resourceId('Microsoft.Network/applicationGateways/sslCertificates', applicationGatewayName, appGatewayCertificateName)
           }
         }
       }
@@ -227,7 +227,10 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
 
 resource publicDnsAlias 'Microsoft.Network/dnsZones/A@2018-05-01' = if (enablePublicEdge) {
   parent: dnsZone
-  name: '@'
+  name: publicDnsRecordName
+  dependsOn: [
+    labPublicDnsZone
+  ]
   properties: {
     TTL: 300
     targetResource: {

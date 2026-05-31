@@ -50,15 +50,15 @@ The existing runner VNet is referenced, not recreated, in `rg-dv-gh-actions-neu`
 
 The template creates two Azure DNS public child zones:
 
-- `api.consultwithcloud.com` for the current APIM edge path.
-- `lab.consultwithcloud.com` for the future full demo stack hostnames.
+- Current edge zone: `api.consultwithcloud.com`
+- Future lab zone: `lab.consultwithcloud.com`
 
-The `lab.consultwithcloud.com` zone is created before certificates, APIM custom
-domain binding, or Application Gateway listener changes depend on it. It has no
-records in this slice. Use the `labPublicDnsZoneNameServers` deployment output
-to create `NS` records for `lab` in Cloudflare, which owns the parent
-`consultwithcloud.com` zone. Cloudflare delegation is an operator action and is
-not performed by Bicep.
+Issue #29 adds only the future lab zone. The `lab.consultwithcloud.com` zone is
+created before certificates, APIM custom domain binding, or Application Gateway
+listener changes depend on it. It has no records in this slice. Use the
+`labPublicDnsZoneNameServers` deployment output to create `NS` records for
+`lab` in Cloudflare, which owns the parent `consultwithcloud.com` zone.
+Cloudflare delegation is an operator action and is not performed by Bicep.
 
 Future issues will add records and bindings for:
 
@@ -68,7 +68,12 @@ Future issues will add records and bindings for:
 
 ## Deployment Flow
 
-Run phase 1 with `enablePublicEdge = false` and `enableCustomDomain = false`. This creates the hub and spoke foundations, DNS child zone, Key Vault, APIM, Log Analytics, ACR, Firewall, and peerings without binding the certificate-dependent edge resources.
+Run phase 1 with `enablePublicEdge = false` and `enableCustomDomain = false`.
+This creates the hub and spoke foundations, DNS child zones, Key Vault, APIM,
+Log Analytics, ACR, Firewall, and peerings without binding the
+certificate-dependent edge resources.
+
+### Future Lab Zone Delegation
 
 After phase 1 completes, copy the `labPublicDnsZoneNameServers` output and add
 those name servers as `NS` records for `lab` in the Cloudflare
@@ -76,7 +81,19 @@ those name servers as `NS` records for `lab` in the Cloudflare
 it does not issue a certificate, bind an APIM custom domain, or add Application
 Gateway listeners for the `lab.consultwithcloud.com` names.
 
-After phase 1 completes, delegate the parent DNS zone `consultwithcloud.com` so `api.consultwithcloud.com` uses the Azure DNS name servers created in the child zone. Then run `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT records and import the Let's Encrypt certificate into Key Vault as `cert-api-consultwithcloud-com`. The certificate workflow imports a PFX file because Application Gateway TLS termination requires PFX certificates in Key Vault.
+### Current Edge Hostname Flow
+
+The current APIM edge hostname remains `api.consultwithcloud.com`. That hostname
+is separate from issue #29 and will stay until a later issue migrates the edge
+to `api.lab.consultwithcloud.com`.
+
+Delegate the parent DNS zone `consultwithcloud.com` so
+`api.consultwithcloud.com` uses the Azure DNS name servers created in the
+current edge child zone. Then run `.github/workflows/certificate-issue.yml` to
+create temporary ACME DNS-01 TXT records and import the Let's Encrypt
+certificate into Key Vault as `cert-api-consultwithcloud-com`. The certificate
+workflow imports a PFX file because Application Gateway TLS termination requires
+PFX certificates in Key Vault.
 
 Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
 

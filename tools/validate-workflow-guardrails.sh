@@ -324,6 +324,18 @@ while IFS= read -r workflow; do
       fail "$rel must not require runner_allowed_public_ip as a manual workflow input"
     fi
 
+    if has_literal "custom_domain_certificate_secret_uri:" "$workflow"; then
+      fail "$rel must not require custom_domain_certificate_secret_uri as a manual workflow input"
+    fi
+
+    if has_literal "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" "$workflow"; then
+      fail "$rel must not pass custom_domain_certificate_secret_uri from workflow inputs"
+    fi
+
+    if has_literal "customDomainCertificateSecretUri" "$workflow"; then
+      fail "$rel must not pass customDomainCertificateSecretUri from the deployment workflow"
+    fi
+
     if ! has_literal "vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR" "$workflow"; then
       fail "$rel must read the runner NAT CIDR from vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR"
     fi

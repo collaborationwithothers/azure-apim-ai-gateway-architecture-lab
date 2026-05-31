@@ -21,7 +21,7 @@
 
 Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, and private IPs through module parameters and outputs instead of relying on implicit resource ordering across files.
 
-## Required Parameters
+## Parameters
 
 | Parameter | Purpose |
 | --- | --- |
@@ -31,7 +31,7 @@ Keep cross-module contracts explicit. Pass resource names, IDs, principal IDs, a
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
 | `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
-| `customDomainCertificateSecretUri` | Versionless Key Vault secret URI for `cert-api-consultwithcloud-com`. |
+| `customDomainCertificateSecretUri` | Optional Bicep override for the versionless certificate secret URI. Leave empty for the lab default, which the GitHub deployment workflow does. |
 | `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |

@@ -51,7 +51,7 @@ on:
       deployment_name:
         description: Azure subscription deployment name.
         required: true
-        default: apim-ai-gateway-lab
+        default: apim-ai-gateway-lab-ncus
 
 permissions:
   contents: read
@@ -116,6 +116,10 @@ jobs:
           set -euo pipefail
           if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
             echo "enable_custom_domain=true requires enable_public_edge=true." >&2
+            exit 1
+          fi
+          if [[ "$DEPLOYMENT_LOCATION" == "northcentralus" && "$DEPLOYMENT_NAME" != *-ncus ]]; then
+            echo "deployment_name must end with -ncus when deployment_location is northcentralus." >&2
             exit 1
           fi
           if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then
@@ -210,6 +214,10 @@ jobs:
           set -euo pipefail
           if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
             echo "enable_custom_domain=true requires enable_public_edge=true." >&2
+            exit 1
+          fi
+          if [[ "$DEPLOYMENT_LOCATION" == "northcentralus" && "$DEPLOYMENT_NAME" != *-ncus ]]; then
+            echo "deployment_name must end with -ncus when deployment_location is northcentralus." >&2
             exit 1
           fi
           if [[ -z "${RUNNER_ALLOWED_PUBLIC_IP:-}" ]]; then

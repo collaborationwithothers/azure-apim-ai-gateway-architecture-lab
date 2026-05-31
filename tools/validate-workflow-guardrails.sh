@@ -38,7 +38,7 @@ has_destructive_destroy_command() {
 
 has_azure_changing_command() {
   local file="$1"
-  grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
+  grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault (certificate import|network-rule (add|remove))|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
 }
 
 has_forbidden_runner_mutation() {
@@ -214,7 +214,7 @@ azure_changing_jobs_without_environment() {
       has_environment = 1
     }
 
-    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault certificate import|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)/ {
+    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault (certificate import|network-rule (add|remove))|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)/ {
       has_azure_change = 1
     }
 
@@ -592,9 +592,15 @@ while IFS= read -r workflow; do
       fail "$rel must use the fixed lab SAN certificate object name instead of a dispatch certificate_name input"
     fi
 
+    if has_literal "runner_allowed_public_ip:" "$workflow"; then
+      fail "$rel must read the runner NAT CIDR from vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR instead of a dispatch input"
+    fi
+
     for expected in \
       "rg-cwc-ai-gw-shared-swc-001" \
       "kv-cwc-aigw-shr-swc-001" \
+      "vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR" \
+      "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value" \
       "KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com" \
       "CERTIFICATE_DOMAINS:" \
       "lab.consultwithcloud.com" \
@@ -614,6 +620,7 @@ while IFS= read -r workflow; do
       "az network dns record-set txt show" \
       "--query txtRecords" \
       "az network dns record-set txt remove-record" \
+      "az keyvault network-rule add" \
       "az keyvault certificate import" \
       "openssl pkcs12"; do
       if ! has_literal "$expected" "$workflow"; then

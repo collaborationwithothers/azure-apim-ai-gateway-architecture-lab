@@ -45,6 +45,50 @@ Firewall through the existing `VirtualAppliance` next hop. Issue #30 does not
 deploy AKS, Redis, Foundry, Istio, Argo CD, private endpoints, or application
 workloads.
 
+## Issue #32 Full Demo Contract
+
+Issue #32 adds only a Bicep parameter and output contract for later full demo
+spoke slices. It does not deploy AKS, Redis, Foundry/model backends, GitOps,
+BFF resources, private endpoints, Kubernetes configuration, Istio, Argo CD, or
+workloads.
+
+The contract reserves these public names:
+
+- `lab.consultwithcloud.com`
+- `api.lab.consultwithcloud.com`
+- `app.lab.consultwithcloud.com`
+- `argo.lab.consultwithcloud.com`
+
+Feature flags for AKS, Redis, Foundry/model backend, GitOps, and BFF support
+default to `false`. The related sizing and configuration parameters are
+non-secret placeholders for later implementation issues.
+
+`infra/bicep/outputs.bicep` exposes the non-sensitive
+`spokeFullDemoContract` output. The output includes DNS names, feature states,
+AKS sizing placeholders, Redis placeholders, Foundry/model placeholders, GitOps
+settings, diagnostic settings, BFF app registration placeholders, unresolved
+decisions, and dependency markers. It must not include keys, tokens,
+kubeconfigs, Redis access keys, certificate material, tenant secrets, client
+secrets, or secret identifiers.
+
+Unresolved decisions for later issues:
+
+- Redis product choice remains unresolved.
+- model availability remains unresolved and must be checked live before deployment.
+- certificate name remains unresolved for the future lab SAN certificate.
+- Argo SSO groups remain unresolved.
+- BFF app registration remains unresolved.
+
+Issue #29 remains the first implementation dependency because the delegated
+`lab.consultwithcloud.com` public DNS zone must exist before future hostname,
+certificate, and listener slices depend on it.
+
+AVM fit for issue #32 was checked against the Azure Verified Modules Bicep
+module index. No new resource module is added because this slice is a
+contract-only parameter and output change. Later resource implementation issues
+must check and document AVM fit again before adding AKS, Redis, Foundry/model,
+GitOps, private endpoint, or workload modules.
+
 ## Parameters
 
 | Parameter | Purpose |
@@ -60,6 +104,21 @@ workloads.
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
 | `runnerVnetResourceGroupName` | Existing runner VNet resource group. Defaults to `rg-dv-gh-actions-neu`. |
 | `runnerVnetName` | Existing runner VNet. Defaults to `vnet-dv-gh-actions-neu`. |
+| `labDnsZoneName` | Future lab DNS zone contract value. Defaults to `lab.consultwithcloud.com`. |
+| `apiLabHostname` | Future APIM gateway hostname contract value. Defaults to `api.lab.consultwithcloud.com`. |
+| `appLabHostname` | Future BFF app hostname contract value. Defaults to `app.lab.consultwithcloud.com`. |
+| `argoLabHostname` | Future GitOps control plane hostname contract value. Defaults to `argo.lab.consultwithcloud.com`. |
+| `enableAks` | Future AKS feature flag. Defaults to `false`. |
+| `enableRedis` | Future Redis feature flag. Defaults to `false`. |
+| `enableFoundryBackend` | Future Foundry/model backend feature flag. Defaults to `false`. |
+| `enableGitOps` | Future GitOps feature flag. Defaults to `false`. |
+| `enableBff` | Future BFF support feature flag. Defaults to `false`. |
+| `aksSkuTier`, `aksNodeVmSize`, `aksNodeCount`, `aksKubernetesVersion`, `aksEnablePrivateCluster`, `aksOutboundType` | Future AKS sizing and configuration placeholders. |
+| `redisSkuName`, `redisCapacity`, `redisFamily`, `redisMinimumTlsVersion` | Future Redis settings placeholders. |
+| `foundryProjectName`, `foundryModelName`, `foundryModelVersion`, `foundryModelDeploymentName`, `foundryModelDeploymentSkuName`, `foundryModelDeploymentCapacity` | Future Foundry/model backend settings placeholders. |
+| `gitOpsRepositoryUrl`, `gitOpsRevision`, `gitOpsPath`, `gitOpsAutoSync`, `gitOpsAutoPrune` | Future GitOps settings placeholders. |
+| `diagnosticLogRetentionDays`, `enableVerboseDiagnostics` | Future diagnostics settings placeholders. |
+| `bffAppRegistrationClientId` | Future BFF Microsoft Entra app registration client ID placeholder. Empty means unresolved. |
 
 ## Expected Resource Groups
 

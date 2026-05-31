@@ -67,7 +67,7 @@ resource apimAzureMonitorDiagnostic 'Microsoft.ApiManagement/service/diagnostics
   parent: apim
   name: 'azuremonitor'
   properties: {
-    loggerId: 'azuremonitor'
+    loggerId: '/loggers/azuremonitor'
     alwaysLog: 'allErrors'
     logClientIp: true
     sampling: {

@@ -6,8 +6,7 @@ param runnerAllowedPublicIp string
 param enablePublicEdge bool
 param enableCustomDomain bool
 param publicHostname string
-param labPublicDnsZoneName string
-param publicDnsRecordName string
+param sharedKeyVaultName string
 param customDomainCertificateSecretUri string
 param deploymentAdminGroupObjectId string
 param wafAllowedSourceCidrs array
@@ -34,8 +33,6 @@ module security './hub-security.bicep' = {
     location: location
     tags: tags
     runnerAllowedPublicIp: runnerAllowedPublicIp
-    appGwSubnetId: network.outputs.appGwSubnetId
-    apimSubnetId: network.outputs.apimSubnetId
   }
 }
 
@@ -68,8 +65,6 @@ module edge './hub-edge.bicep' = {
     tags: tags
     enablePublicEdge: enablePublicEdge
     publicHostname: publicHostname
-    labPublicDnsZoneName: labPublicDnsZoneName
-    publicDnsRecordName: publicDnsRecordName
     customDomainCertificateSecretUri: customDomainCertificateSecretUri
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
     appGwSubnetId: network.outputs.appGwSubnetId
@@ -80,10 +75,7 @@ module edge './hub-edge.bicep' = {
 module rbac './hub-rbac.bicep' = {
   name: 'hub-rbac'
   params: {
-    keyVaultName: security.outputs.keyVaultName
     acrName: security.outputs.acrName
-    appGwIdentityPrincipalId: security.outputs.appGwIdentityPrincipalId
-    apimPrincipalId: apim.outputs.apimPrincipalId
     deploymentAdminGroupObjectId: deploymentAdminGroupObjectId
   }
 }
@@ -92,7 +84,6 @@ module diagnostics './hub-diagnostics.bicep' = {
   name: 'hub-diagnostics'
   params: {
     logAnalyticsWorkspaceId: observability.outputs.logAnalyticsWorkspaceId
-    keyVaultName: security.outputs.keyVaultName
     acrName: security.outputs.acrName
     firewallName: firewall.outputs.firewallName
     apimName: apim.outputs.apimName
@@ -102,10 +93,15 @@ module diagnostics './hub-diagnostics.bicep' = {
 }
 
 output hubVnetId string = network.outputs.hubVnetId
+output appGwSubnetId string = network.outputs.appGwSubnetId
+output apimSubnetId string = network.outputs.apimSubnetId
 output firewallPrivateIp string = firewall.outputs.firewallPrivateIp
 output logAnalyticsWorkspaceId string = observability.outputs.logAnalyticsWorkspaceId
-output keyVaultName string = security.outputs.keyVaultName
+output keyVaultName string = sharedKeyVaultName
+output acrName string = security.outputs.acrName
+output apimPrincipalId string = apim.outputs.apimPrincipalId
+output appGwIdentityPrincipalId string = security.outputs.appGwIdentityPrincipalId
 output apimName string = apim.outputs.apimName
 output applicationGatewayName string = edge.outputs.applicationGatewayName
+output applicationGatewayPublicIpId string = edge.outputs.applicationGatewayPublicIpId
 output certificateSecretUri string = customDomainCertificateSecretUri
-output labPublicDnsZoneNameServers array = edge.outputs.labPublicDnsZoneNameServers

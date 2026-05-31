@@ -209,6 +209,8 @@ jobs:
           echo "api.lab.consultwithcloud.com"
           echo "app.lab.consultwithcloud.com"
           echo "argo.lab.consultwithcloud.com"
+          echo "rg-cwc-ai-gw-shared-swc-001"
+          echo "kv-cwc-aigw-shr-swc-001"
           echo "_acme-challenge.api"
           echo "_acme-challenge.app"
           echo "_acme-challenge.argo"
@@ -219,6 +221,72 @@ jobs:
           az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
 EOF
   bash "$validator" --root "$dir" >/tmp/workflow-guardrails-deploy-success.out
+}
+
+expect_failure_for_certificate_name_input() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
+name: Certificate Issue
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      certificate_name:
+        required: true
+      acme_server:
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+permissions:
+  contents: read
+env:
+  CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
+  KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+jobs:
+  issue:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "rg-cwc-ai-gw-shared-swc-001"
+          echo "kv-cwc-aigw-shr-swc-001"
+          echo "lab.consultwithcloud.com"
+          echo "api.lab.consultwithcloud.com"
+          echo "app.lab.consultwithcloud.com"
+          echo "argo.lab.consultwithcloud.com"
+          echo "_acme-challenge.api"
+          echo "_acme-challenge.app"
+          echo "_acme-challenge.argo"
+          echo "--test-cert"
+          az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-certificate-name-input.out 2>&1; then
+    echo "expected certificate_name dispatch input to fail" >&2
+    return 1
+  fi
+  grep -q "must use the fixed lab SAN certificate object name instead of a dispatch certificate_name input" \
+    /tmp/workflow-guardrails-certificate-name-input.out
 }
 
 expect_success_for_guarded_destroy_workflow() {
@@ -248,7 +316,12 @@ env:
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-swc-001 rg-cwc-ai-gw-spoke-swc-001
+  PERSISTENT_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-shared-swc-001
+  PERSISTENT_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+  LAB_PUBLIC_DNS_ZONE_NAME: lab.consultwithcloud.com
+  APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001
+  APIM_LOCATION: swedencentral
+  CONFIRM_DESTROY_PHRASE: destroy
 jobs:
   preview:
     if: >-
@@ -266,6 +339,10 @@ jobs:
           echo preview
           echo rg-cwc-ai-gw-hub-swc-001
           echo rg-cwc-ai-gw-spoke-swc-001
+          echo rg-cwc-ai-gw-shared-swc-001
+          echo kv-cwc-aigw-shr-swc-001
+          echo lab.consultwithcloud.com
+          echo Cloudflare delegation
   destroy:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -295,8 +372,154 @@ jobs:
           az group exists --name "\$SPOKE_RESOURCE_GROUP_NAME"
           az group delete --name "\$SPOKE_RESOURCE_GROUP_NAME" --yes
           az group delete --name "\$HUB_RESOURCE_GROUP_NAME" --yes
+          echo rg-cwc-ai-gw-shared-swc-001
+          echo kv-cwc-aigw-shr-swc-001
+          echo lab.consultwithcloud.com
+          echo Cloudflare delegation
+          az apim deletedservice show --service-name "\$APIM_SERVICE_NAME" --location "\$APIM_LOCATION"
+          az apim deletedservice purge --service-name "\$APIM_SERVICE_NAME" --location "\$APIM_LOCATION"
 EOF
   bash "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-success.out
+}
+
+expect_failure_for_destroy_deletes_persistent_resource_group() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/infra-destroy.yml" <<EOF
+name: Infra Destroy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options: [preview, destroy]
+      confirm_destroy:
+        required: false
+permissions:
+  contents: read
+env:
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-swc-001
+  RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
+  RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
+  HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
+  SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
+  PERSISTENT_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-shared-swc-001
+  PERSISTENT_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+  LAB_PUBLIC_DNS_ZONE_NAME: lab.consultwithcloud.com
+  APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001
+  APIM_LOCATION: swedencentral
+  CONFIRM_DESTROY_PHRASE: destroy
+jobs:
+  destroy:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'destroy'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          if [[ "\${{ inputs.confirm_destroy }}" != "\$CONFIRM_DESTROY_PHRASE" ]]; then
+            echo "confirm_destroy must exactly match"
+            exit 1
+          fi
+          echo rg-cwc-ai-gw-hub-swc-001
+          echo rg-cwc-ai-gw-spoke-swc-001
+          echo rg-cwc-ai-gw-shared-swc-001
+          echo kv-cwc-aigw-shr-swc-001
+          echo lab.consultwithcloud.com
+          echo Cloudflare delegation
+          az network vnet peering show --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$HUB_RUNNER_PEERING_NAME"
+          az network vnet peering delete --resource-group "\$RUNNER_VNET_RESOURCE_GROUP_NAME" --vnet-name "\$RUNNER_VNET_NAME" --name "\$SPOKE_RUNNER_PEERING_NAME"
+          az group delete --name "\$SPOKE_RESOURCE_GROUP_NAME" --yes
+          az group delete --name "\$HUB_RESOURCE_GROUP_NAME" --yes
+          az group delete --name "\$PERSISTENT_RESOURCE_GROUP_NAME" --yes
+          az apim deletedservice show --service-name "\$APIM_SERVICE_NAME" --location "\$APIM_LOCATION"
+          az apim deletedservice purge --service-name "\$APIM_SERVICE_NAME" --location "\$APIM_LOCATION"
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-destroy-shared-rg.out 2>&1; then
+    echo "expected destroy workflow deleting persistent resource group to fail" >&2
+    return 1
+  fi
+  grep -q "must not delete persistent resource group rg-cwc-ai-gw-shared-swc-001" \
+    /tmp/workflow-guardrails-destroy-shared-rg.out
+}
+
+expect_failure_for_persistent_bootstrap_destroy_mode() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/bootstrap-persistent.yml" <<EOF
+name: Bootstrap Persistent
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      mode:
+        type: choice
+        options:
+          - validate
+          - what-if
+          - apply
+          - destroy
+      confirm_destroy:
+        required: false
+      key_vault_virtual_network_rule_subnet_ids:
+        required: false
+permissions:
+  contents: read
+env:
+  DEPLOYMENT_NAME: apim-ai-gateway-persistent-swc
+  KEY_VAULT_VNET_RULE_SUBNET_IDS: \${{ inputs.key_vault_virtual_network_rule_subnet_ids }}
+jobs:
+  apply:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.mode == 'destroy'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "infra/bicep/persistent.bicep"
+          echo "keyVaultVirtualNetworkRuleSubnetIds"
+          echo "Microsoft.KeyVault"
+          echo "Microsoft.Network"
+          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --template-file infra/bicep/persistent.bicep
+          az deployment sub create --name "\$DEPLOYMENT_NAME" --template-file infra/bicep/persistent.bicep
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-bootstrap-destroy-mode.out 2>&1; then
+    echo "expected bootstrap destroy mode to fail" >&2
+    return 1
+  fi
+  grep -q "must be create/update only and must not include destroy mode" \
+    /tmp/workflow-guardrails-bootstrap-destroy-mode.out
 }
 
 write_planned_spoke_workflow() {
@@ -351,7 +574,7 @@ expect_success_for_planned_spoke_workflow_taxonomy() {
   write_planned_spoke_workflow "$dir/.github/workflows/image-promotion.yml" \
     "az acr repository show-tags --name acrcwcaigwswc001 --repository bff"
   write_planned_spoke_workflow "$dir/.github/workflows/lab-certificate-issue.yml" \
-    "az keyvault certificate import --vault-name kv-cwc-ai-gw-swc-001 --name cert-lab-consultwithcloud-com"
+    "az keyvault certificate import --vault-name kv-cwc-aigw-shr-swc-001 --name cert-lab-consultwithcloud-com"
 
   bash "$validator" --root "$dir" >/tmp/workflow-guardrails-planned-spoke-success.out
 }
@@ -1349,8 +1572,11 @@ EOF
 
 expect_success
 expect_success_for_guarded_deployment_workflows
+expect_failure_for_certificate_name_input
 expect_success_for_guarded_destroy_workflow
 expect_success_for_planned_spoke_workflow_taxonomy
+expect_failure_for_destroy_deletes_persistent_resource_group
+expect_failure_for_persistent_bootstrap_destroy_mode
 expect_failure_for_planned_workflow_caller_controlled_target
 expect_failure_for_azure_changing_push_trigger
 expect_failure_for_destroy_target_inputs

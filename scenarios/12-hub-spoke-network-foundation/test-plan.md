@@ -41,9 +41,9 @@ workflow:
 
 ```sh
 az deployment sub what-if \
-  --location northcentralus \
+  --location swedencentral \
   --template-file infra/bicep/main.bicep \
-  --parameters location=northcentralus \
+  --parameters location=swedencentral \
   --parameters runnerAllowedPublicIp=<runner-nat-public-ip>
 ```
 
@@ -55,7 +55,7 @@ For the GitHub Actions path, `runnerAllowedPublicIp` is populated from the
 
 ## Post-apply checks
 
-- Hub and spoke resource groups exist in `northcentralus`.
+- Hub and spoke resource groups exist in `swedencentral`.
 - Hub, spoke, and runner VNets have bidirectional peerings.
 - Spoke route tables send future workload and AKS default egress to Azure
   Firewall private IP.

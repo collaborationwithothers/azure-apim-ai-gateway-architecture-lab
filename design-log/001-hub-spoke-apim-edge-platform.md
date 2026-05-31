@@ -14,7 +14,7 @@ The lab needs a secure but demonstrable public API edge. The repository is publi
 
 Q: Which Azure region is the target?
 
-A: `northcentralus` for all newly deployed resources. Current Microsoft documentation lists North Central US for APIM Premium v2 and for the Azure OpenAI Responses API. East US 2 is not usable for this lab while new APIM Premium v2 instance creation is temporarily unavailable there. West Europe is not usable for the current AI backend goal because it is not currently listed for the Responses API.
+A: `swedencentral` for all newly deployed resources. Microsoft documentation lists Sweden Central for APIM Premium v2 and for the Azure OpenAI Responses API, and the live APIM SKU API lists `PremiumV2` for this subscription in `swedencentral`. East US 2 is not usable for this lab while new APIM Premium v2 instance creation is temporarily unavailable there.
 
 Q: Are the hub and spoke in the same subscription?
 
@@ -99,8 +99,8 @@ flowchart LR
   appgw --> apim[APIM Premium v2 private gateway]
   apim --> spoke[Future private APIs in spoke VNet]
 
-  runner[Existing GitHub runner VNet] --- hub[Hub VNet northcentralus]
-  runner --- spokeVnet[Spoke VNet northcentralus]
+  runner[Existing GitHub runner VNet] --- hub[Hub VNet swedencentral]
+  runner --- spokeVnet[Spoke VNet swedencentral]
   hub --- spokeVnet
 
   spokeVnet --> fw[Azure Firewall Standard]
@@ -202,7 +202,7 @@ Bad APIM management model:
 
 ## Trade-offs
 
-Using APIM Premium v2 plus the Azure OpenAI Responses API narrows the viable single-region target to regions that support both capabilities. `northcentralus` is the selected replacement for East US 2. APIM Premium v2 also removes the direct management endpoint pattern, which is acceptable because Azure portal and ARM are the intended management plane.
+Using APIM Premium v2 plus the Azure OpenAI Responses API narrows the viable single-region target to regions that support both capabilities and pass subscription-specific SKU validation. `swedencentral` is the selected replacement for East US 2 and North Central US. APIM Premium v2 also removes the direct management endpoint pattern, which is acceptable because Azure portal and ARM are the intended management plane.
 
 Using Application Gateway WAF gives public ingress and WAF inspection but means TLS is terminated and re-encrypted rather than passed through unchanged.
 
@@ -236,6 +236,7 @@ Enabling APIM body logging improves demo observability but increases data sensit
 
 - [APIM v2 tiers overview](https://learn.microsoft.com/en-us/azure/api-management/v2-service-tiers-overview)
 - [APIM v2 tier region availability](https://learn.microsoft.com/en-us/azure/api-management/api-management-region-availability)
+- [APIM SKU list API](https://learn.microsoft.com/en-us/rest/api/apimanagement/api-management-skus/list?view=rest-apimanagement-2024-05-01)
 - [Azure OpenAI Responses API](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses)
 - [Inject APIM Premium v2 in a private VNet](https://learn.microsoft.com/en-us/azure/api-management/inject-vnet-v2)
 - [Configure APIM custom domains](https://learn.microsoft.com/en-us/azure/api-management/configure-custom-domain)

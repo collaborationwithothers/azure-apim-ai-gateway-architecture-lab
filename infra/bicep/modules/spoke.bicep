@@ -7,7 +7,7 @@ param hubVnetId string
 param runnerVnetId string
 
 resource workloadRouteTable 'Microsoft.Network/routeTables@2024-05-01' = {
-  name: 'rt-cwc-ai-gw-workload-ncus-001'
+  name: 'rt-cwc-ai-gw-workload-swc-001'
   location: location
   tags: tags
   properties: {
@@ -26,7 +26,7 @@ resource workloadRouteTable 'Microsoft.Network/routeTables@2024-05-01' = {
 }
 
 resource aksRouteTable 'Microsoft.Network/routeTables@2024-05-01' = {
-  name: 'rt-cwc-ai-gw-aks-ncus-001'
+  name: 'rt-cwc-ai-gw-aks-swc-001'
   location: location
   tags: tags
   properties: {
@@ -45,7 +45,7 @@ resource aksRouteTable 'Microsoft.Network/routeTables@2024-05-01' = {
 }
 
 resource spokeVnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
-  name: 'vnet-cwc-ai-gw-spoke-ncus-001'
+  name: 'vnet-cwc-ai-gw-spoke-swc-001'
   location: location
   tags: tags
   properties: {

@@ -13,7 +13,7 @@ Documents are numbered sequentially: `NNN-short-title.md`.
 ## Networking / Private Endpoints / DNS
 | # | Title | Description |
 |---|-------|-------------|
-| 001 | [Hub-Spoke APIM Edge Platform](001-hub-spoke-apim-edge-platform.md) | 2026-05-27 - Deployable northcentralus hub-spoke APIM edge platform with firewall, WAF, DNS, diagnostics, and guarded GitHub Actions. |
+| 001 | [Hub-Spoke APIM Edge Platform](001-hub-spoke-apim-edge-platform.md) | 2026-05-27 - Deployable swedencentral hub-spoke APIM edge platform with firewall, WAF, DNS, diagnostics, and guarded GitHub Actions. |
 
 ## Identity / RBAC
 | # | Title | Description |

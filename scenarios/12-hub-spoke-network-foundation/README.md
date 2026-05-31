@@ -45,7 +45,7 @@ and which spoke choices remain open until a workload is designed.
 
 ## 4. Constraints
 
-- All new resources target `northcentralus`, which is currently listed for both
+- All new resources target `swedencentral`, which is currently listed for both
   APIM Premium v2 and the Azure OpenAI Responses API.
 - APIM uses Premium v2 with VNet injection.
 - Application Gateway WAF v2 is the public HTTPS edge.
@@ -84,7 +84,7 @@ that needs direct peering to both hub and spoke for deployment and validation.
 
 ### Chosen approach
 
-Use a customer-managed hub-spoke topology with a central hub in `northcentralus`, one
+Use a customer-managed hub-spoke topology with a central hub in `swedencentral`, one
 workload spoke, and direct peering to the existing runner VNet.
 
 ### Alternatives considered

@@ -24,13 +24,13 @@ permissions:
   contents: read
 
 env:
-  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-ncus-001
-  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-ncus-001
+  HUB_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-hub-swc-001
+  SPOKE_RESOURCE_GROUP_NAME: rg-cwc-ai-gw-spoke-swc-001
   RUNNER_VNET_RESOURCE_GROUP_NAME: rg-dv-gh-actions-neu
   RUNNER_VNET_NAME: vnet-dv-gh-actions-neu
   HUB_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-hub
   SPOKE_RUNNER_PEERING_NAME: peer-to-cwc-ai-gw-spoke
-  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-ncus-001 rg-cwc-ai-gw-spoke-ncus-001
+  CONFIRM_DESTROY_PHRASE: destroy rg-cwc-ai-gw-hub-swc-001 rg-cwc-ai-gw-spoke-swc-001
 
 jobs:
   preview:

@@ -9,11 +9,11 @@ param wafAllowedSourceCidrs array
 param appGwSubnetId string
 param appGwIdentityId string
 
-var applicationGatewayName = 'agw-cwc-ai-gw-ncus-001'
+var applicationGatewayName = 'agw-cwc-ai-gw-swc-001'
 var healthPath = '/status-0123456789abcdef'
 
 resource appGwPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
-  name: 'pip-agw-cwc-ai-gw-ncus-001'
+  name: 'pip-agw-cwc-ai-gw-swc-001'
   location: location
   tags: tags
   sku: {
@@ -32,7 +32,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
 }
 
 resource wafPolicy 'Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies@2024-05-01' = {
-  name: 'wafpol-cwc-ai-gw-ncus-001'
+  name: 'wafpol-cwc-ai-gw-swc-001'
   location: location
   tags: tags
   properties: {

@@ -35,15 +35,16 @@ See [docs/02-reference-architecture.md](docs/02-reference-architecture.md) and
 [diagrams/mermaid/high-level-architecture.md](diagrams/mermaid/high-level-architecture.md).
 
 The first deployable platform slice is the hub-spoke APIM edge platform in
-`northcentralus`. It creates hub and spoke resource groups, deploys APIM Premium v2 in
+`swedencentral`. It creates hub and spoke resource groups, deploys APIM Premium v2 in
 a delegated hub subnet, places Application Gateway WAF v2 in front of APIM,
 routes future spoke workload egress through Azure Firewall Standard, and sends
 diagnostics to Log Analytics. The public hostname is
 `api.consultwithcloud.com`.
 
-North Central US is the selected single-region target because current Microsoft
+Sweden Central is the selected single-region target because Microsoft
 documentation lists it for APIM Premium v2 and for the Azure OpenAI Responses
-API required by later AI backend scenarios.
+API required by later AI backend scenarios, and the live APIM SKU API lists
+`PremiumV2` for this subscription in `swedencentral`.
 
 ## Why APIM as an AI gateway
 
@@ -137,7 +138,7 @@ Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in
 use. The workflow is manual and destructive. Preview mode lists the runner-side
 peerings and lab resource groups that would be deleted. Destroy mode requires
 the exact confirmation phrase, removes the runner-side peerings, and deletes
-only `rg-cwc-ai-gw-hub-ncus-001` and `rg-cwc-ai-gw-spoke-ncus-001`.
+only `rg-cwc-ai-gw-hub-swc-001` and `rg-cwc-ai-gw-spoke-swc-001`.
 
 The destroy workflow does not delete the runner VNet, runner resource group,
 parent DNS delegation, subscription deployment history, or unrelated resources.

@@ -161,7 +161,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
           protocol: 'Https'
           cookieBasedAffinity: 'Disabled'
           requestTimeout: 60
-          hostName: apimGatewayHostname
+          hostName: publicHostname
           pickHostNameFromBackendAddress: false
           probe: {
             id: resourceId('Microsoft.Network/applicationGateways/probes', applicationGatewayName, 'apim-health')

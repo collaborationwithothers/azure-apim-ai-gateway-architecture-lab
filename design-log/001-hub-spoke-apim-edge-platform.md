@@ -148,8 +148,8 @@ The edge path is:
 1. Public DNS child zone `lab.consultwithcloud.com` has an `api` alias `A` record to the Application Gateway public IP.
 2. Application Gateway WAF v2 uses a Key Vault PFX certificate for `api.lab.consultwithcloud.com`.
 3. Application Gateway backend HTTPS settings use host and SNI `api.lab.consultwithcloud.com`.
-4. APIM Premium v2 has the same gateway custom domain and certificate from Key Vault after public DNS resolution to Application Gateway is visible.
-5. Private DNS maps the APIM gateway hostname to the APIM private IP for in-network resolution.
+4. The Application Gateway backend pool targets the APIM default gateway hostname `apim-cwc-ai-gw-swc-001.azure-api.net` through private DNS.
+5. Private DNS maps the APIM default gateway hostname to the APIM private IP for in-network resolution.
 
 The persistent bootstrap deployment creates the public DNS child zone
 `lab.consultwithcloud.com`, creates shared Key Vault
@@ -158,9 +158,9 @@ hub-spoke deployment references both as existing resources and creates the
 `api` record under `lab.consultwithcloud.com`. Cloudflare owns the parent
 `consultwithcloud.com` zone, so parent delegation for `lab` is a separate
 operator step. There is no public DNS zone for `api.consultwithcloud.com`.
-Let's Encrypt certificate issuance and APIM custom domain binding remain
-separate later steps. The lab SAN certificate object name is
-`cert-lab-consultwithcloud-com`.
+Let's Encrypt certificate issuance remains a separate later step. APIM does not
+bind `api.lab.consultwithcloud.com` as a custom hostname in this route. The lab
+SAN certificate object name is `cert-lab-consultwithcloud-com`.
 
 GitHub Actions uses two manual workflows:
 

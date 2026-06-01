@@ -17,10 +17,10 @@ param expectedRepository string = 'collaborationwithothers/azure-apim-ai-gateway
 @description('Public NAT IP address of the self-hosted runner. Use CIDR notation, for example 203.0.113.10/32.')
 param runnerAllowedPublicIp string
 
-@description('Set true only after the Key Vault certificate for api.lab.consultwithcloud.com exists and customDomainCertificateSecretUri is set.')
+@description('Set true only after the Key Vault SAN certificate for the lab hostnames exists and customDomainCertificateSecretUri is set.')
 param enablePublicEdge bool = false
 
-@description('Optional versionless Key Vault secret URI for the api.lab.consultwithcloud.com PFX. Leave empty until the lab certificate object name is confirmed.')
+@description('Optional versionless Key Vault secret URI for the lab SAN certificate PFX. Leave empty until the lab certificate object exists.')
 param customDomainCertificateSecretUri string = ''
 
 @description('Microsoft Entra group object ID for permanent deployment administrators that receive lab Key Vault administration and ACR push access.')

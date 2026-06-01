@@ -14,6 +14,16 @@ fi
 jq -e '.parameters.apiLabHostname.defaultValue == "api.lab.consultwithcloud.com"' "$compiled_template" >/dev/null
 jq -e '.variables.publicHostname == "[parameters('\''apiLabHostname'\'')]"' "$compiled_template" >/dev/null
 jq -e '.variables.apimGatewayHostname == "apim-cwc-ai-gw-swc-001.azure-api.net"' "$compiled_template" >/dev/null
+jq -e '.. | objects | select(.variables?.healthPath == "/status-0123456789abcdef")' "$compiled_template" >/dev/null
+
+jq -e '
+  .. | objects
+  | select(.type? == "Microsoft.Network/virtualNetworks")
+  | select(.name == "[variables('\''hubVnetName'\'')]")
+  | .properties.subnets[]
+  | select(.name == "snet-appgw")
+  | (.properties.routeTable? // null) == null
+' "$compiled_template" >/dev/null
 
 jq -e '
   .. | objects
@@ -70,8 +80,17 @@ jq -e '
   | select(.type? == "Microsoft.Network/applicationGateways")
   | (.properties.backendAddressPools[] | select(.name == "apim-private-gateway").properties.backendAddresses[0].fqdn == "[parameters('\''apimGatewayHostname'\'')]")
   and (.properties.probes[] | select(.name == "apim-health").properties.host == "[parameters('\''apimGatewayHostname'\'')]")
-  and (.properties.backendHttpSettingsCollection[] | select(.name == "https-apim").properties.hostName == "[parameters('\''apimGatewayHostname'\'')]")
+  and (.properties.probes[] | select(.name == "apim-health").properties.path == "[variables('\''healthPath'\'')]")
+  and (.properties.backendHttpSettingsCollection[] | select(.name == "https-apim").properties.hostName == "[parameters('\''publicHostname'\'')]")
   and (.properties.httpListeners[] | select(.name == "https-api-consultwithcloud").properties.hostName == "[parameters('\''publicHostname'\'')]")
+  and (.properties.firewallPolicy.id == "[resourceId('\''Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies'\'', '\''wafpol-cwc-ai-gw-swc-001'\'')]")
+' "$compiled_template" >/dev/null
+
+jq -e '
+  .. | objects
+  | select(.type? == "Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies")
+  | .properties.policySettings.state == "Enabled"
+  and .properties.policySettings.mode == "Prevention"
 ' "$compiled_template" >/dev/null
 
 jq -e '

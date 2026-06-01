@@ -353,10 +353,12 @@ jobs:
           apim_private_ip=""
 
           for attempt in {1..30}; do
-            apim_private_ip="$(az apim show \
+            apim_private_ip="$(az resource show \
               --resource-group "$APIM_RESOURCE_GROUP" \
+              --resource-type Microsoft.ApiManagement/service \
               --name "$APIM_SERVICE_NAME" \
-              --query "privateIPAddresses[0]" \
+              --api-version 2024-05-01 \
+              --query "properties.privateIPAddresses[0]" \
               -o tsv)"
 
             if [[ -n "$apim_private_ip" && "$apim_private_ip" != "None" ]]; then

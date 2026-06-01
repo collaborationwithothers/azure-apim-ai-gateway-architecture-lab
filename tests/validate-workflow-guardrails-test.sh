@@ -180,7 +180,7 @@ jobs:
           echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=example" >> "\$GITHUB_ENV"
           az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
           echo "Upsert APIM private gateway DNS record"
-          az apim show --resource-group "\$APIM_RESOURCE_GROUP" --name "\$APIM_SERVICE_NAME" --query "privateIPAddresses[0]" -o tsv
+          az resource show --resource-group "\$APIM_RESOURCE_GROUP" --resource-type Microsoft.ApiManagement/service --name "\$APIM_SERVICE_NAME" --api-version 2024-05-01 --query "properties.privateIPAddresses[0]" -o tsv
           az network private-dns record-set a create --resource-group "\$APIM_RESOURCE_GROUP" --zone-name "\$APIM_PRIVATE_DNS_ZONE_NAME" --name @
           az network private-dns record-set a update --resource-group "\$APIM_RESOURCE_GROUP" --zone-name "\$APIM_PRIVATE_DNS_ZONE_NAME" --name @ --set "aRecords=[]"
 EOF

@@ -110,6 +110,9 @@ jobs:
       DEPLOYMENT_NAME: apim-ai-gateway-lab-swc
       SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
       LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+      APIM_RESOURCE_GROUP: rg-cwc-ai-gw-hub-swc-001
+      APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001
+      APIM_PRIVATE_DNS_ZONE_NAME: apim-cwc-ai-gw-swc-001.azure-api.net
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
@@ -154,6 +157,9 @@ jobs:
       DEPLOYMENT_NAME: apim-ai-gateway-lab-swc
       SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
       LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+      APIM_RESOURCE_GROUP: rg-cwc-ai-gw-hub-swc-001
+      APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001
+      APIM_PRIVATE_DNS_ZONE_NAME: apim-cwc-ai-gw-swc-001.azure-api.net
       RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
     steps:
       - uses: actions/checkout@$checkout_sha
@@ -173,6 +179,10 @@ jobs:
           echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001"
           echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=example" >> "\$GITHUB_ENV"
           az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
+          echo "Upsert APIM private gateway DNS record"
+          az apim show --resource-group "\$APIM_RESOURCE_GROUP" --name "\$APIM_SERVICE_NAME" --query "privateIPAddresses[0]" -o tsv
+          az network private-dns record-set a create --resource-group "\$APIM_RESOURCE_GROUP" --zone-name "\$APIM_PRIVATE_DNS_ZONE_NAME" --name @
+          az network private-dns record-set a update --resource-group "\$APIM_RESOURCE_GROUP" --zone-name "\$APIM_PRIVATE_DNS_ZONE_NAME" --name @ --set "aRecords=[]"
 EOF
   cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
 name: Certificate Issue

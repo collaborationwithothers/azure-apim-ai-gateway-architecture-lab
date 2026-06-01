@@ -38,7 +38,7 @@ has_destructive_destroy_command() {
 
 has_azure_changing_command() {
   local file="$1"
-  grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault (certificate import|network-rule (add|remove))|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
+  grep -Eq '(az deployment sub (what-if|create)|az provider register|az keyvault (certificate import|network-rule (add|remove))|az network dns record-set txt (add-record|remove-record|create|delete)|az network private-dns record-set a (create|update)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)' "$file"
 }
 
 has_forbidden_runner_mutation() {
@@ -214,7 +214,7 @@ azure_changing_jobs_without_environment() {
       has_environment = 1
     }
 
-    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault (certificate import|network-rule (add|remove))|az network dns record-set txt (add-record|remove-record|create|delete)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)/ {
+    in_job && /(az deployment sub (what-if|create)|az provider register|az keyvault (certificate import|network-rule (add|remove))|az network dns record-set txt (add-record|remove-record|create|delete)|az network private-dns record-set a (create|update)|az network vnet peering delete|az group delete|az aks (start|stop|update|get-credentials)|az acr (build|login|import|repository)|az apim |az k8s-extension |az k8s-configuration |kubectl (apply|delete|patch|create|rollout|set)|helm (install|upgrade|uninstall)|argocd|apiops)/ {
       has_azure_change = 1
     }
 
@@ -480,12 +480,20 @@ while IFS= read -r workflow; do
       "deployment_name must end with -swc when deployment_location is swedencentral" \
       "SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001" \
       "LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com" \
+      "APIM_RESOURCE_GROUP: rg-cwc-ai-gw-hub-swc-001" \
+      "APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001" \
+      "APIM_PRIVATE_DNS_ZONE_NAME: apim-cwc-ai-gw-swc-001.azure-api.net" \
       "Infer custom domain certificate secret URI" \
       "az keyvault certificate show" \
       "--query sid" \
       "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI" \
       "customDomainCertificateSecretUri=\"\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI\"" \
       "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001" \
+      "Upsert APIM private gateway DNS record" \
+      "az apim show" \
+      "privateIPAddresses[0]" \
+      "az network private-dns record-set a create" \
+      "az network private-dns record-set a update" \
       "runnerAllowedPublicIp" \
       "enablePublicEdge" \
       "az bicep restore" \

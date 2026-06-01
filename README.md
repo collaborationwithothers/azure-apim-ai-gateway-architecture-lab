@@ -167,7 +167,7 @@ the managed runner. The deployment is staged:
 3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
 4. Rerun persistent bootstrap in `apply` mode. The workflow keeps the GitHub runner subnet on the Key Vault rules, infers the hub Application Gateway and APIM subnet IDs, and updates the shared Key Vault network rules.
 5. After parent-zone delegation is in place, run the certificate workflow to issue the production certificate.
-6. Rerun infrastructure with `enablePublicEdge = true`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`, deploys Application Gateway for `api.lab.consultwithcloud.com`, and routes privately to APIM through `apim-cwc-ai-gw-swc-001.azure-api.net`.
+6. Rerun infrastructure with `enablePublicEdge = true`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`, deploys Application Gateway for `api.lab.consultwithcloud.com`, upserts private DNS for the assigned APIM private VIP, and routes privately to APIM through `apim-cwc-ai-gw-swc-001.azure-api.net`.
 
 Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in
 use. The workflow is manual and destructive. Preview mode lists the runner-side

@@ -113,19 +113,6 @@ resource apimAzureMonitorDiagnostic 'Microsoft.ApiManagement/service/diagnostics
   }
 }
 
-resource privateApimRecord 'Microsoft.Network/privateDnsZones/A@2024-06-01' = {
-  parent: privateDnsZone
-  name: '@'
-  properties: {
-    ttl: 300
-    aRecords: [
-      {
-        ipv4Address: apim.properties.privateIPAddresses[0]
-      }
-    ]
-  }
-}
-
 output apimName string = apim.name
 output apimId string = apim.id
 output apimPrincipalId string = apim.identity.principalId

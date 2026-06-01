@@ -14,7 +14,7 @@
 | `hub-observability.bicep` | Log Analytics workspace and workspace-based Application Insights. |
 | `hub-security.bicep` | ACR, Application Gateway managed identity, and runner IP network restrictions for ACR. |
 | `hub-firewall.bicep` | Firewall Policy, Azure Firewall public IP, and Azure Firewall. |
-| `hub-apim.bicep` | APIM Premium v2, APIM Azure Monitor diagnostic configuration, private DNS zone, hub VNet link, and private APIM A record. |
+| `hub-apim.bicep` | APIM Premium v2, APIM Azure Monitor diagnostic configuration, private DNS zone, and hub VNet link. |
 | `hub-edge.bicep` | WAF policy, Application Gateway public IP, Application Gateway, and public DNS alias in the existing lab DNS zone. |
 | `hub-rbac.bicep` | ACR role assignment for deployment administrators at the hub resource group scope. |
 | `hub-diagnostics.bicep` | Azure Monitor diagnostic settings for hub resources. |
@@ -211,11 +211,12 @@ record for `api.lab.consultwithcloud.com`.
 Application Gateway terminates public TLS for `api.lab.consultwithcloud.com` and
 re-encrypts to the APIM default gateway hostname
 `apim-cwc-ai-gw-swc-001.azure-api.net`. APIM does not bind
-`api.lab.consultwithcloud.com` as a custom hostname. The deployment creates a
-private DNS zone named `apim-cwc-ai-gw-swc-001.azure-api.net`, adds an apex A
-record to the APIM private IP, and links that zone to both the hub VNet and the
-spoke VNet as resolution-only links. This keeps the public lab hostname on
-Application Gateway and avoids the APIM Premium v2 public CNAME ownership check.
+`api.lab.consultwithcloud.com` as a custom hostname. Bicep creates a private DNS
+zone named `apim-cwc-ai-gw-swc-001.azure-api.net` and links that zone to both
+the hub VNet and the spoke VNet as resolution-only links. After the deployment,
+the guarded workflow reads the assigned APIM private VIP and upserts the apex A
+record. This keeps the public lab hostname on Application Gateway and avoids the
+APIM Premium v2 public CNAME ownership check.
 
 ## Destroy Flow
 

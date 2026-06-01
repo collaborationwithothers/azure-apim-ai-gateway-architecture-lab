@@ -199,8 +199,9 @@ name servers created by the lab child zone. Then run
 records in `lab.consultwithcloud.com` and import the Let's Encrypt SAN
 certificate into Key Vault as `cert-lab-consultwithcloud-com`. Parent zone
 delegation must be in place before production issuance. The certificate
-workflow installs `certbot` if the runner image does not already provide it and
-imports a PFX file because
+workflow uses the fixed `rg-cwc-ai-gw-shared-swc-001` public DNS resource group
+and `kv-cwc-aigw-shr-swc-001` Key Vault. It installs `certbot` if the runner
+image does not already provide it and imports a PFX file because
 Application Gateway TLS termination requires PFX certificates in Key Vault.
 
 Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. The guarded workflow looks up `cert-lab-consultwithcloud-com` in `kv-cwc-aigw-shr-swc-001`, strips the secret version, and passes the versionless URI to Bicep. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.

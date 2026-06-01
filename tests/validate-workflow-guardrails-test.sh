@@ -186,14 +186,6 @@ on:
     inputs:
       expected_repository:
         required: true
-      dns_zone_name:
-        default: lab.consultwithcloud.com
-      acme_server:
-        type: choice
-        default: staging
-        options:
-          - staging
-          - production
 permissions:
   contents: read
 env:
@@ -228,7 +220,6 @@ jobs:
           echo "_acme-challenge.api"
           echo "_acme-challenge.app"
           echo "_acme-challenge.argo"
-          echo "--test-cert"
           echo "Install certbot if missing"
           sudo apt-get install -y certbot
           echo "::add-mask::secret"
@@ -236,6 +227,7 @@ jobs:
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          certbot certonly
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
           az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
 EOF
@@ -304,6 +296,7 @@ jobs:
           az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
           az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
           az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          certbot certonly
           openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
           az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
 EOF
@@ -313,6 +306,144 @@ EOF
   fi
   grep -q "must use the fixed lab SAN certificate object name instead of a dispatch certificate_name input" \
     /tmp/workflow-guardrails-certificate-name-input.out
+}
+
+expect_failure_for_certificate_target_inputs() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
+name: Certificate Issue
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      dns_zone_resource_group:
+        required: true
+      dns_zone_name:
+        required: true
+      key_vault_name:
+        required: true
+permissions:
+  contents: read
+env:
+  CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
+  KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+  RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+jobs:
+  issue:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "rg-cwc-ai-gw-shared-swc-001"
+          echo "kv-cwc-aigw-shr-swc-001"
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value"
+          echo "lab.consultwithcloud.com"
+          echo "api.lab.consultwithcloud.com"
+          echo "app.lab.consultwithcloud.com"
+          echo "argo.lab.consultwithcloud.com"
+          echo "_acme-challenge.api"
+          echo "_acme-challenge.app"
+          echo "_acme-challenge.argo"
+          echo "Install certbot if missing"
+          sudo apt-get install -y certbot
+          echo "::add-mask::secret"
+          az keyvault network-rule add --name kv-cwc-aigw-shr-swc-001 --ip-address "\$RUNNER_ALLOWED_PUBLIC_IP"
+          az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
+          az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-certificate-target-inputs.out 2>&1; then
+    echo "expected certificate target dispatch inputs to fail" >&2
+    return 1
+  fi
+  grep -q "must use fixed lab DNS and Key Vault targets instead of dispatch inputs" \
+    /tmp/workflow-guardrails-certificate-target-inputs.out
+}
+
+expect_failure_for_certificate_acme_mode_input() {
+  local dir
+  dir="$(mktemp -d)"
+  make_fixture "$dir"
+  cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
+name: Certificate Issue
+on:
+  workflow_dispatch:
+    inputs:
+      expected_repository:
+        required: true
+      acme_server:
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+permissions:
+  contents: read
+env:
+  CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
+  KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
+  DNS_ZONE_RESOURCE_GROUP: rg-cwc-ai-gw-shared-swc-001
+  DNS_ZONE_NAME: lab.consultwithcloud.com
+  KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
+  RUNNER_ALLOWED_PUBLIC_IP: \${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
+jobs:
+  issue:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      inputs.expected_repository == 'collaborationwithothers/azure-apim-ai-gateway-architecture-lab' &&
+      github.actor == 'haripraghash' &&
+      github.ref == 'refs/heads/main'
+    runs-on:
+      group: consultwithcloud-azure
+      labels: [gh-linux]
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@$checkout_sha
+      - uses: azure/login@$azure_login_sha
+      - run: |
+          echo "RUNNER_ALLOWED_PUBLIC_IP_CIDR must be an IPv4 CIDR value"
+          echo "_acme-challenge.api"
+          echo "_acme-challenge.app"
+          echo "_acme-challenge.argo"
+          echo "Install certbot if missing"
+          sudo apt-get install -y certbot
+          echo "::add-mask::secret"
+          az keyvault network-rule add --name kv-cwc-aigw-shr-swc-001 --ip-address "\$RUNNER_ALLOWED_PUBLIC_IP"
+          az network dns record-set txt add-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          az network dns record-set txt show --zone-name lab.consultwithcloud.com --name _acme-challenge.api --query txtRecords
+          az network dns record-set txt remove-record --zone-name lab.consultwithcloud.com --record-set-name _acme-challenge.api
+          openssl pkcs12 -export -out "\$KEY_VAULT_CERTIFICATE_NAME.pfx"
+          az keyvault certificate import --name "\$KEY_VAULT_CERTIFICATE_NAME"
+          certbot certonly --test-cert
+EOF
+  if bash "$validator" --root "$dir" >/tmp/workflow-guardrails-certificate-acme-mode.out 2>&1; then
+    echo "expected certificate ACME mode input to fail" >&2
+    return 1
+  fi
+  grep -q "must issue production ACME certificates without an acme_server dispatch input" \
+    /tmp/workflow-guardrails-certificate-acme-mode.out
 }
 
 expect_success_for_guarded_destroy_workflow() {
@@ -1694,6 +1825,8 @@ EOF
 expect_success
 expect_success_for_guarded_deployment_workflows
 expect_failure_for_certificate_name_input
+expect_failure_for_certificate_target_inputs
+expect_failure_for_certificate_acme_mode_input
 expect_success_for_guarded_destroy_workflow
 expect_success_for_planned_spoke_workflow_taxonomy
 expect_failure_for_destroy_deletes_persistent_resource_group

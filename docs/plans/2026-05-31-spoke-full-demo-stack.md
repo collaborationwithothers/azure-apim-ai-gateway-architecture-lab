@@ -95,8 +95,9 @@ fit check before adding resource modules.
 - Extend Application Gateway with separate HTTPS listeners and routing rules for `api`, `app`, and `argo` under `lab.consultwithcloud.com`.
 - Update the certificate workflow to issue and import a SAN certificate covering all three lab hostnames.
   Production certificate issuance must not run until parent-zone delegation for
-  `lab.consultwithcloud.com` is in place. Use ACME staging mode first to verify
-  DNS challenge records and Key Vault import access.
+  `lab.consultwithcloud.com` is in place. DNS challenge records and Key Vault
+  import access were already verified with staging issuance, so the workflow now
+  issues production certificates only.
 - Add AKS with Azure CNI Overlay, `userDefinedRouting`, lowest-cost development posture, and ACR pull access.
 - Add upstream Istio installation through GitOps or bootstrap Helm values, with an internal ingress gateway service.
 - Add Argo CD through the Azure extension, configure Entra OIDC, RBAC, and public WAF routing.

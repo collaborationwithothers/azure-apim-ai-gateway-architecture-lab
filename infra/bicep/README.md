@@ -210,13 +210,19 @@ record for `api.lab.consultwithcloud.com`.
 
 Application Gateway terminates public TLS for `api.lab.consultwithcloud.com` and
 re-encrypts to the APIM default gateway hostname
-`apim-cwc-ai-gw-swc-001.azure-api.net`. APIM does not bind
-`api.lab.consultwithcloud.com` as a custom hostname. Bicep creates a private DNS
-zone named `apim-cwc-ai-gw-swc-001.azure-api.net` and links that zone to both
-the hub VNet and the spoke VNet as resolution-only links. After the deployment,
-the guarded workflow reads the assigned APIM private VIP and upserts the apex A
-record. This keeps the public lab hostname on Application Gateway and avoids the
-APIM Premium v2 public CNAME ownership check.
+`apim-cwc-ai-gw-swc-001.azure-api.net`. The backend pool resolves that APIM
+default hostname through private DNS, while the backend HTTPS settings send
+`api.lab.consultwithcloud.com` as the backend Host and SNI name. APIM does not
+bind `api.lab.consultwithcloud.com` as a custom hostname. Bicep creates a
+private DNS zone named `apim-cwc-ai-gw-swc-001.azure-api.net` and links that zone
+to both the hub VNet and the spoke VNet as resolution-only links. After the
+deployment, the guarded workflow reads the assigned APIM private VIP and upserts
+the apex A record. This keeps the public lab hostname on Application Gateway and
+avoids the APIM Premium v2 public CNAME ownership check.
+
+This Application Gateway route is only for API gateway traffic on
+`api.lab.consultwithcloud.com`. It does not publish APIM management, the
+developer portal, or direct control-plane endpoints through Application Gateway.
 
 ## Destroy Flow
 

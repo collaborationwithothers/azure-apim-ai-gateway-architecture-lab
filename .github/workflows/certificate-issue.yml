@@ -7,29 +7,9 @@ on:
         description: Repository allowed to run this workflow.
         required: true
         default: collaborationwithothers/azure-apim-ai-gateway-architecture-lab
-      acme_server:
-        description: ACME endpoint. Use staging until DNS and Key Vault access are verified.
-        required: true
-        type: choice
-        default: staging
-        options:
-          - staging
-          - production
       contact_email:
         description: ACME registration email.
         required: true
-      dns_zone_resource_group:
-        description: Resource group that owns the Azure DNS zone.
-        required: true
-        default: rg-cwc-ai-gw-shared-swc-001
-      dns_zone_name:
-        description: Azure DNS zone for the lab hostnames.
-        required: true
-        default: lab.consultwithcloud.com
-      key_vault_name:
-        description: Key Vault that receives the issued certificate.
-        required: true
-        default: kv-cwc-aigw-shr-swc-001
       dns_propagation_seconds:
         description: Seconds to wait after creating the DNS-01 TXT record.
         required: true
@@ -41,9 +21,9 @@ permissions:
 env:
   CERTIFICATE_DOMAINS: api.lab.consultwithcloud.com app.lab.consultwithcloud.com argo.lab.consultwithcloud.com
   KEY_VAULT_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
-  DNS_ZONE_RESOURCE_GROUP: ${{ inputs.dns_zone_resource_group }}
-  DNS_ZONE_NAME: ${{ inputs.dns_zone_name }}
-  KEY_VAULT_NAME: ${{ inputs.key_vault_name }}
+  DNS_ZONE_RESOURCE_GROUP: rg-cwc-ai-gw-shared-swc-001
+  DNS_ZONE_NAME: lab.consultwithcloud.com
+  KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
   DNS_PROPAGATION_SECONDS: ${{ inputs.dns_propagation_seconds }}
   RUNNER_ALLOWED_PUBLIC_IP: ${{ vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR }}
 
@@ -135,7 +115,6 @@ jobs:
       - name: Issue certificate with ACME DNS-01
         env:
           CONTACT_EMAIL: ${{ inputs.contact_email }}
-          ACME_SERVER: ${{ inputs.acme_server }}
         run: |
           set -euo pipefail
           if [[ "$DNS_ZONE_NAME" != "lab.consultwithcloud.com" ]]; then
@@ -214,10 +193,6 @@ jobs:
 
           chmod 700 "$auth_hook" "$cleanup_hook"
 
-          server_args=()
-          if [[ "$ACME_SERVER" == "staging" ]]; then
-            server_args+=(--test-cert)
-          fi
           domain_args=()
           for domain in $CERTIFICATE_DOMAINS; do
             domain_args+=(-d "$domain")
@@ -235,8 +210,7 @@ jobs:
             --config-dir "$certbot_root/config" \
             --work-dir "$certbot_root/work" \
             --logs-dir "$certbot_root/logs" \
-            "${domain_args[@]}" \
-            "${server_args[@]}"
+            "${domain_args[@]}"
 
           live_dir="$certbot_root/config/live/api.lab.consultwithcloud.com"
           pfx_file="$RUNNER_TEMP/$KEY_VAULT_CERTIFICATE_NAME.pfx"

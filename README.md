@@ -155,17 +155,19 @@ the `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, and
 change APIM custom-domain binding.
 Use `.github/workflows/certificate-issue.yml` only after the bootstrap workflow
 has created the Azure DNS child zone and Key Vault. The certificate workflow
-performs Let's Encrypt ACME DNS-01 issuance and imports a PFX certificate into
-Key Vault as `cert-lab-consultwithcloud-com` for Application Gateway TLS
-termination. It installs `certbot` with `apt-get` only when `certbot` is not
-already present on the managed runner. APIM custom domain binding remains a
-separate later infrastructure step. The deployment is staged:
+performs Let's Encrypt ACME DNS-01 issuance against the fixed
+`lab.consultwithcloud.com` zone in `rg-cwc-ai-gw-shared-swc-001` and imports a
+PFX certificate into `kv-cwc-aigw-shr-swc-001` as
+`cert-lab-consultwithcloud-com` for Application Gateway TLS termination. It
+installs `certbot` with `apt-get` only when `certbot` is not already present on
+the managed runner. APIM custom domain binding remains a separate later
+infrastructure step. The deployment is staged:
 
 1. Run persistent bootstrap in `apply` mode.
 2. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
 3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
 4. Rerun persistent bootstrap in `apply` mode. The workflow keeps the GitHub runner subnet on the Key Vault rules, infers the hub Application Gateway and APIM subnet IDs, and updates the shared Key Vault network rules.
-5. After parent-zone delegation is in place, run the certificate workflow in staging mode.
+5. After parent-zone delegation is in place, run the certificate workflow to issue the production certificate.
 6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`.
 7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
 

@@ -596,6 +596,29 @@ while IFS= read -r workflow; do
       fail "$rel must use the fixed lab SAN certificate object name instead of a dispatch certificate_name input"
     fi
 
+    for acme_mode_content in \
+      "acme_server:" \
+      "inputs.acme_server" \
+      "ACME_SERVER" \
+      "--test-cert" \
+      "staging"; do
+      if has_literal "$acme_mode_content" "$workflow"; then
+        fail "$rel must issue production ACME certificates without an acme_server dispatch input"
+      fi
+    done
+
+    for target_input in \
+      "dns_zone_resource_group:" \
+      "dns_zone_name:" \
+      "key_vault_name:" \
+      "inputs.dns_zone_resource_group" \
+      "inputs.dns_zone_name" \
+      "inputs.key_vault_name"; do
+      if has_literal "$target_input" "$workflow"; then
+        fail "$rel must use fixed lab DNS and Key Vault targets instead of dispatch inputs"
+      fi
+    done
+
     if has_literal "runner_allowed_public_ip:" "$workflow"; then
       fail "$rel must read the runner NAT CIDR from vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR instead of a dispatch input"
     fi
@@ -614,12 +637,10 @@ while IFS= read -r workflow; do
       "_acme-challenge.api" \
       "_acme-challenge.app" \
       "_acme-challenge.argo" \
-      "staging" \
-      "production" \
-      "--test-cert" \
       "Install certbot if missing" \
       "sudo apt-get install -y certbot" \
       "::add-mask::" \
+      "certbot certonly" \
       "az network dns record-set txt add-record" \
       "az network dns record-set txt show" \
       "--query txtRecords" \

@@ -330,6 +330,16 @@ module spoke './modules/spoke.bicep' = {
   }
 }
 
+module hubApimSpokePrivateDnsLink './modules/hub-apim-spoke-private-dns-link.bicep' = {
+  name: 'hub-apim-spoke-private-dns-link'
+  scope: hubRg
+  params: {
+    privateDnsZoneName: hub.outputs.apimPrivateDnsZoneName
+    spokeVnetId: spoke.outputs.spokeVnetId
+    tags: tags
+  }
+}
+
 module hubPeerings './modules/hub-peerings.bicep' = {
   name: 'hub-peerings'
   scope: hubRg

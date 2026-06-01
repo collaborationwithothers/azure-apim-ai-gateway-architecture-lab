@@ -169,7 +169,7 @@ infrastructure step. The deployment is staged:
 4. Rerun persistent bootstrap in `apply` mode. The workflow keeps the GitHub runner subnet on the Key Vault rules, infers the hub Application Gateway and APIM subnet IDs, and updates the shared Key Vault network rules.
 5. After parent-zone delegation is in place, run the certificate workflow to issue the production certificate.
 6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`.
-7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`.
+7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`. This binds the APIM gateway custom domain and links the APIM private DNS zone to the hub and spoke VNets so `api.lab.consultwithcloud.com` resolves privately from Application Gateway and spoke workloads.
 
 Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in
 use. The workflow is manual and destructive. Preview mode lists the runner-side

@@ -98,6 +98,10 @@ fit check before adding resource modules.
   `lab.consultwithcloud.com` is in place. DNS challenge records and Key Vault
   import access were already verified with staging issuance, so the workflow now
   issues production certificates only.
+- Link the APIM private DNS zone for `api.lab.consultwithcloud.com` to both the
+  hub and spoke VNets so Application Gateway and spoke workloads resolve the
+  APIM gateway hostname to the APIM private IP after custom domain binding is
+  enabled.
 - Add AKS with Azure CNI Overlay, `userDefinedRouting`, lowest-cost development posture, and ACR pull access.
 - Add upstream Istio installation through GitOps or bootstrap Helm values, with an internal ingress gateway service.
 - Add Argo CD through the Azure extension, configure Entra OIDC, RBAC, and public WAF routing.

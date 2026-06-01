@@ -105,3 +105,4 @@ output apimName string = apim.outputs.apimName
 output applicationGatewayName string = edge.outputs.applicationGatewayName
 output applicationGatewayPublicIpId string = edge.outputs.applicationGatewayPublicIpId
 output certificateSecretUri string = customDomainCertificateSecretUri
+output apimPrivateDnsZoneName string = apim.outputs.privateDnsZoneName

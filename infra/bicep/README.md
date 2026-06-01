@@ -206,7 +206,7 @@ Application Gateway TLS termination requires PFX certificates in Key Vault.
 
 Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. The guarded workflow looks up `cert-lab-consultwithcloud-com` in `kv-cwc-aigw-shr-swc-001`, strips the secret version, and passes the versionless URI to Bicep. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
 
-Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.lab.consultwithcloud.com` resolves to Application Gateway. This binds `api.lab.consultwithcloud.com` on APIM and creates the private APIM resolution record. Let's Encrypt certificate issuance and APIM custom domain binding remain separate steps.
+Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.lab.consultwithcloud.com` resolves to Application Gateway. This binds `api.lab.consultwithcloud.com` on APIM and creates the private APIM resolution record in a private DNS zone named `api.lab.consultwithcloud.com`. The deployment links that zone to both the hub VNet and the spoke VNet as resolution-only links so Application Gateway and spoke workloads resolve the APIM gateway hostname to the APIM private IP. Let's Encrypt certificate issuance and APIM custom domain binding remain separate steps.
 
 ## Destroy Flow
 

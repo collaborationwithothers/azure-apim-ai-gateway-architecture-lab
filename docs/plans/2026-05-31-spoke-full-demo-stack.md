@@ -100,8 +100,10 @@ fit check before adding resource modules.
   import access were already verified with staging issuance, so the workflow now
   issues production certificates only.
 - Link the APIM private DNS zone for `apim-cwc-ai-gw-swc-001.azure-api.net` to
-  both the hub and spoke VNets so Application Gateway and spoke workloads
-  resolve the APIM default gateway hostname to the APIM private IP.
+  both the hub and spoke VNets. The infrastructure workflow upserts the zone's
+  apex A record after APIM exposes its assigned private VIP, so Application
+  Gateway and spoke workloads resolve the APIM default gateway hostname to the
+  APIM private IP.
 - Add AKS with Azure CNI Overlay, `userDefinedRouting`, lowest-cost development posture, and ACR pull access.
 - Add upstream Istio installation through GitOps or bootstrap Helm values, with an internal ingress gateway service.
 - Add Argo CD through the Azure extension, configure Entra OIDC, RBAC, and public WAF routing.

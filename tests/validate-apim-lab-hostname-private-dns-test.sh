@@ -28,11 +28,41 @@ jq -e '
   | .name == "[parameters('\''apimGatewayHostname'\'')]"
 ' "$compiled_template" >/dev/null
 
+jq '
+  [
+    .. | objects
+    | select(.type? == "Microsoft.Network/privateDnsZones/A")
+    | select(.name == "[format('\''{0}/{1}'\'', parameters('\''apimGatewayHostname'\''), '\''@'\'')]")
+  ]
+' "$compiled_template" >/tmp/apim-private-dns-a-record.out
+
+if [[ "$(jq 'length' /tmp/apim-private-dns-a-record.out)" != "0" ]]; then
+  echo "APIM private DNS A record must not dereference apim.properties.privateIPAddresses[0] during ARM template evaluation." >&2
+  cat /tmp/apim-private-dns-a-record.out >&2
+  exit 1
+fi
+
+workflow="$repo_root/.github/workflows/infra-deploy.yml"
+
+grep -q "APIM_SERVICE_NAME: apim-cwc-ai-gw-swc-001" "$workflow"
+grep -q "APIM_RESOURCE_GROUP: rg-cwc-ai-gw-hub-swc-001" "$workflow"
+grep -q "APIM_PRIVATE_DNS_ZONE_NAME: apim-cwc-ai-gw-swc-001.azure-api.net" "$workflow"
+grep -q "Upsert APIM private gateway DNS record" "$workflow"
+grep -q "az apim show" "$workflow"
+grep -q "az network private-dns record-set a create" "$workflow"
+grep -q "az network private-dns record-set a update" "$workflow"
+
+if grep -q "privateIPAddresses\\[0\\]" "$repo_root/infra/bicep/modules/hub-apim.bicep"; then
+  echo "hub-apim.bicep must not index privateIPAddresses[0] for DNS during the same deployment." >&2
+  exit 1
+fi
+
 jq -e '
-  .. | objects
-  | select(.type? == "Microsoft.Network/privateDnsZones/A")
-  | .name == "[format('\''{0}/{1}'\'', parameters('\''apimGatewayHostname'\''), '\''@'\'')]"
-  and (.properties.aRecords[0].ipv4Address | contains("privateIPAddresses[0]"))
+  [
+    .. | objects
+    | select(.type? == "Microsoft.Network/privateDnsZones/A")
+    | .name
+  ] | index("[format('\''{0}/{1}'\'', parameters('\''apimGatewayHostname'\''), '\''@'\'')]") | not
 ' "$compiled_template" >/dev/null
 
 jq -e '

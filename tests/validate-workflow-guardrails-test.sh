@@ -73,11 +73,6 @@ on:
         options:
           - "false"
           - "true"
-      enable_custom_domain:
-        type: choice
-        options:
-          - "false"
-          - "true"
 permissions:
   contents: read
 jobs:
@@ -139,7 +134,7 @@ jobs:
           az keyvault certificate show --vault-name "\$SHARED_KEY_VAULT_NAME" --name "\$LAB_CERTIFICATE_NAME" --query sid -o tsv
           echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001"
           echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=example" >> "\$GITHUB_ENV"
-          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
+          az deployment sub what-if --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
   apply:
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -177,7 +172,7 @@ jobs:
           az keyvault certificate show --vault-name "\$SHARED_KEY_VAULT_NAME" --name "\$LAB_CERTIFICATE_NAME" --query sid -o tsv
           echo "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001"
           echo "CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI=example" >> "\$GITHUB_ENV"
-          az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false enableCustomDomain=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
+          az deployment sub create --name "\$DEPLOYMENT_NAME" --location "\$DEPLOYMENT_LOCATION" --template-file infra/bicep/main.bicep --parameters runnerAllowedPublicIp="\$RUNNER_ALLOWED_PUBLIC_IP" enablePublicEdge=false customDomainCertificateSecretUri="\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI"
 EOF
   cat >"$dir/.github/workflows/certificate-issue.yml" <<EOF
 name: Certificate Issue

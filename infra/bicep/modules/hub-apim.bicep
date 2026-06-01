@@ -2,14 +2,12 @@ targetScope = 'resourceGroup'
 
 param location string
 param tags object
-param enableCustomDomain bool
-param publicHostname string
-param customDomainCertificateSecretUri string
+param apimGatewayHostname string
 param hubVnetId string
 param apimSubnetId string
 
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
-  name: publicHostname
+  name: apimGatewayHostname
   location: 'global'
   tags: tags
 }
@@ -49,17 +47,7 @@ resource apim 'Microsoft.ApiManagement/service@2025-09-01-preview' = {
       legacyApi: 'Disabled'
     }
     developerPortalStatus: 'Enabled'
-    hostnameConfigurations: enableCustomDomain ? [
-      {
-        type: 'Proxy'
-        hostName: publicHostname
-        certificateSource: 'KeyVault'
-        keyVaultId: customDomainCertificateSecretUri
-        identityClientId: 'SystemAssigned'
-        defaultSslBinding: true
-        negotiateClientCertificate: false
-      }
-    ] : []
+    hostnameConfigurations: []
   }
 }
 
@@ -125,7 +113,7 @@ resource apimAzureMonitorDiagnostic 'Microsoft.ApiManagement/service/diagnostics
   }
 }
 
-resource privateApimRecord 'Microsoft.Network/privateDnsZones/A@2024-06-01' = if (enableCustomDomain) {
+resource privateApimRecord 'Microsoft.Network/privateDnsZones/A@2024-06-01' = {
   parent: privateDnsZone
   name: '@'
   properties: {
@@ -142,3 +130,4 @@ output apimName string = apim.name
 output apimId string = apim.id
 output apimPrincipalId string = apim.identity.principalId
 output privateDnsZoneName string = privateDnsZone.name
+output gatewayHostname string = apimGatewayHostname

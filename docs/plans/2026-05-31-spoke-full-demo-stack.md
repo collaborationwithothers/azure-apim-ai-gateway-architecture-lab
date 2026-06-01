@@ -78,8 +78,9 @@ Issue #33 moves the active public API hostname contract to
 `api.lab.consultwithcloud.com`, keeps `lab.consultwithcloud.com` as the DNS
 zone, and carries explicit `api`, `app`, and `argo` record labels. PR #63 uses
 fixed Key Vault certificate object name `cert-lab-consultwithcloud-com`. Let's
-Encrypt certificate issuance and APIM custom domain binding are still separate
-later steps.
+Encrypt certificate issuance remains separate from the infrastructure
+deployment. `api.lab.consultwithcloud.com` stays on Application Gateway; APIM
+uses its default gateway hostname behind private DNS.
 
 AVM fit for issue #32 was checked against the AVM Bicep module index. No AVM or
 local resource module is added for issue #32 because this slice defines only
@@ -98,10 +99,9 @@ fit check before adding resource modules.
   `lab.consultwithcloud.com` is in place. DNS challenge records and Key Vault
   import access were already verified with staging issuance, so the workflow now
   issues production certificates only.
-- Link the APIM private DNS zone for `api.lab.consultwithcloud.com` to both the
-  hub and spoke VNets so Application Gateway and spoke workloads resolve the
-  APIM gateway hostname to the APIM private IP after custom domain binding is
-  enabled.
+- Link the APIM private DNS zone for `apim-cwc-ai-gw-swc-001.azure-api.net` to
+  both the hub and spoke VNets so Application Gateway and spoke workloads
+  resolve the APIM default gateway hostname to the APIM private IP.
 - Add AKS with Azure CNI Overlay, `userDefinedRouting`, lowest-cost development posture, and ACR pull access.
 - Add upstream Istio installation through GitOps or bootstrap Helm values, with an internal ingress gateway service.
 - Add Argo CD through the Azure extension, configure Entra OIDC, RBAC, and public WAF routing.

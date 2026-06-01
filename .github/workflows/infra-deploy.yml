@@ -36,14 +36,6 @@ on:
         options:
           - "false"
           - "true"
-      enable_custom_domain:
-        description: Bind the APIM custom domain after public DNS resolves to the edge.
-        required: true
-        type: choice
-        default: "false"
-        options:
-          - "false"
-          - "true"
       deployment_name:
         description: Azure subscription deployment name.
         required: true
@@ -57,7 +49,6 @@ env:
   TEMPLATE_FILE: ${{ inputs.template_file }}
   PARAMETERS_FILE: ${{ inputs.parameters_file }}
   ENABLE_PUBLIC_EDGE: ${{ inputs.enable_public_edge }}
-  ENABLE_CUSTOM_DOMAIN: ${{ inputs.enable_custom_domain }}
   DEPLOYMENT_NAME: ${{ inputs.deployment_name }}
   SHARED_KEY_VAULT_NAME: kv-cwc-aigw-shr-swc-001
   LAB_CERTIFICATE_NAME: cert-lab-consultwithcloud-com
@@ -123,10 +114,6 @@ jobs:
       - name: Validate deployment stage inputs
         run: |
           set -euo pipefail
-          if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
-            echo "enable_custom_domain=true requires enable_public_edge=true." >&2
-            exit 1
-          fi
           if [[ "$DEPLOYMENT_LOCATION" == "swedencentral" && "$DEPLOYMENT_NAME" != *-swc ]]; then
             echo "deployment_name must end with -swc when deployment_location is swedencentral." >&2
             exit 1
@@ -224,7 +211,6 @@ jobs:
             --parameters
             runnerAllowedPublicIp="$RUNNER_ALLOWED_PUBLIC_IP"
             enablePublicEdge="$ENABLE_PUBLIC_EDGE"
-            enableCustomDomain="$ENABLE_CUSTOM_DOMAIN"
           )
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")
@@ -259,10 +245,6 @@ jobs:
       - name: Validate deployment stage inputs
         run: |
           set -euo pipefail
-          if [[ "$ENABLE_CUSTOM_DOMAIN" == "true" && "$ENABLE_PUBLIC_EDGE" != "true" ]]; then
-            echo "enable_custom_domain=true requires enable_public_edge=true." >&2
-            exit 1
-          fi
           if [[ "$DEPLOYMENT_LOCATION" == "swedencentral" && "$DEPLOYMENT_NAME" != *-swc ]]; then
             echo "deployment_name must end with -swc when deployment_location is swedencentral." >&2
             exit 1
@@ -354,7 +336,6 @@ jobs:
             --parameters
             runnerAllowedPublicIp="$RUNNER_ALLOWED_PUBLIC_IP"
             enablePublicEdge="$ENABLE_PUBLIC_EDGE"
-            enableCustomDomain="$ENABLE_CUSTOM_DOMAIN"
           )
           if [[ -n "$PARAMETERS_FILE" ]]; then
             args+=(--parameters "@$PARAMETERS_FILE")

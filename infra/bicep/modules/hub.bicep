@@ -4,8 +4,8 @@ param location string
 param tags object
 param runnerAllowedPublicIp string
 param enablePublicEdge bool
-param enableCustomDomain bool
 param publicHostname string
+param apimGatewayHostname string
 param sharedKeyVaultName string
 param customDomainCertificateSecretUri string
 param deploymentAdminGroupObjectId string
@@ -50,9 +50,7 @@ module apim './hub-apim.bicep' = {
   params: {
     location: location
     tags: tags
-    enableCustomDomain: enableCustomDomain
-    publicHostname: publicHostname
-    customDomainCertificateSecretUri: customDomainCertificateSecretUri
+    apimGatewayHostname: apimGatewayHostname
     hubVnetId: network.outputs.hubVnetId
     apimSubnetId: network.outputs.apimSubnetId
   }
@@ -65,6 +63,7 @@ module edge './hub-edge.bicep' = {
     tags: tags
     enablePublicEdge: enablePublicEdge
     publicHostname: publicHostname
+    apimGatewayHostname: apimGatewayHostname
     customDomainCertificateSecretUri: customDomainCertificateSecretUri
     wafAllowedSourceCidrs: wafAllowedSourceCidrs
     appGwSubnetId: network.outputs.appGwSubnetId

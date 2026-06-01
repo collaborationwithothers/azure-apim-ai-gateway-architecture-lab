@@ -138,8 +138,8 @@ Use `.github/workflows/infra-deploy.yml` for `validate`, `what-if`, and `apply`
 of the ephemeral hub and spoke platform.
 The workflow reads the runner NAT CIDR from the `RUNNER_ALLOWED_PUBLIC_IP_CIDR`
 variable on the `dev` GitHub Environment. It accepts the remaining non-secret
-deployment inputs directly, including `enable_public_edge`,
-`enable_custom_domain`, and `deployment_name`. The lab Key Vault certificate
+deployment inputs directly, including `enable_public_edge` and
+`deployment_name`. The lab Key Vault certificate
 secret URI must be supplied only after `cert-lab-consultwithcloud-com` exists.
 The Bicep deployment references the persistent shared Key Vault and public DNS
 zone as existing resources, assigns the permanent deployment admin group Key
@@ -152,7 +152,7 @@ deployment into Cloudflare as `NS` records for the `lab` subdomain of
 `consultwithcloud.com`. This Cloudflare delegation prepares
 the `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, and
 `argo.lab.consultwithcloud.com` hostnames; it does not issue certificates or
-change APIM custom-domain binding.
+change APIM hostname binding.
 Use `.github/workflows/certificate-issue.yml` only after the bootstrap workflow
 has created the Azure DNS child zone and Key Vault. The certificate workflow
 performs Let's Encrypt ACME DNS-01 issuance against the fixed
@@ -160,16 +160,14 @@ performs Let's Encrypt ACME DNS-01 issuance against the fixed
 PFX certificate into `kv-cwc-aigw-shr-swc-001` as
 `cert-lab-consultwithcloud-com` for Application Gateway TLS termination. It
 installs `certbot` with `apt-get` only when `certbot` is not already present on
-the managed runner. APIM custom domain binding remains a separate later
-infrastructure step. The deployment is staged:
+the managed runner. The deployment is staged:
 
 1. Run persistent bootstrap in `apply` mode.
-2. Run infrastructure with `enablePublicEdge = false` and `enableCustomDomain = false`.
+2. Run infrastructure with `enablePublicEdge = false`.
 3. Delegate `lab.consultwithcloud.com` from the parent DNS zone.
 4. Rerun persistent bootstrap in `apply` mode. The workflow keeps the GitHub runner subnet on the Key Vault rules, infers the hub Application Gateway and APIM subnet IDs, and updates the shared Key Vault network rules.
 5. After parent-zone delegation is in place, run the certificate workflow to issue the production certificate.
-6. Rerun infrastructure with `enablePublicEdge = true` and `enableCustomDomain = false`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`.
-7. After public DNS resolves to Application Gateway, rerun with `enablePublicEdge = true` and `enableCustomDomain = true`. This binds the APIM gateway custom domain and links the APIM private DNS zone to the hub and spoke VNets so `api.lab.consultwithcloud.com` resolves privately from Application Gateway and spoke workloads.
+6. Rerun infrastructure with `enablePublicEdge = true`. The workflow infers the versionless Key Vault secret URI for `cert-lab-consultwithcloud-com`, deploys Application Gateway for `api.lab.consultwithcloud.com`, and routes privately to APIM through `apim-cwc-ai-gw-swc-001.azure-api.net`.
 
 Use `.github/workflows/infra-destroy.yml` to tear down the lab when it is not in
 use. The workflow is manual and destructive. Preview mode lists the runner-side

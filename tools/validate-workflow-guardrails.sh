@@ -490,8 +490,10 @@ while IFS= read -r workflow; do
       "customDomainCertificateSecretUri=\"\$CUSTOM_DOMAIN_CERTIFICATE_SECRET_URI\"" \
       "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001" \
       "Upsert APIM private gateway DNS record" \
-      "az apim show" \
-      "privateIPAddresses[0]" \
+      "az resource show" \
+      "Microsoft.ApiManagement/service" \
+      "api-version 2024-05-01" \
+      "properties.privateIPAddresses[0]" \
       "az network private-dns record-set a create" \
       "az network private-dns record-set a update" \
       "runnerAllowedPublicIp" \

@@ -4,6 +4,7 @@ param location string
 param tags object
 param enablePublicEdge bool
 param publicHostname string
+param apimGatewayHostname string
 param customDomainCertificateSecretUri string
 param wafAllowedSourceCidrs array
 param appGwSubnetId string
@@ -127,7 +128,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
         properties: {
           backendAddresses: [
             {
-              fqdn: publicHostname
+              fqdn: apimGatewayHostname
             }
           ]
         }
@@ -138,7 +139,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
         name: 'apim-health'
         properties: {
           protocol: 'Https'
-          host: publicHostname
+          host: apimGatewayHostname
           path: healthPath
           interval: 30
           timeout: 30
@@ -160,7 +161,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-05-01' = if (ena
           protocol: 'Https'
           cookieBasedAffinity: 'Disabled'
           requestTimeout: 60
-          hostName: publicHostname
+          hostName: apimGatewayHostname
           pickHostNameFromBackendAddress: false
           probe: {
             id: resourceId('Microsoft.Network/applicationGateways/probes', applicationGatewayName, 'apim-health')

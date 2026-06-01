@@ -451,6 +451,10 @@ while IFS= read -r workflow; do
       fail "$rel must not require custom_domain_certificate_secret_uri as a manual workflow input"
     fi
 
+    if has_literal "enable_custom_domain:" "$workflow" || has_literal "ENABLE_CUSTOM_DOMAIN" "$workflow" || has_literal "enableCustomDomain" "$workflow"; then
+      fail "$rel must not bind APIM custom domains from the deployment workflow"
+    fi
+
     if ! has_literal "vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR" "$workflow"; then
       fail "$rel must read the runner NAT CIDR from vars.RUNNER_ALLOWED_PUBLIC_IP_CIDR"
     fi
@@ -484,7 +488,6 @@ while IFS= read -r workflow; do
       "enable_public_edge=true requires certificate cert-lab-consultwithcloud-com in Key Vault kv-cwc-aigw-shr-swc-001" \
       "runnerAllowedPublicIp" \
       "enablePublicEdge" \
-      "enableCustomDomain" \
       "az bicep restore" \
       "az bicep build" \
       "az provider show" \

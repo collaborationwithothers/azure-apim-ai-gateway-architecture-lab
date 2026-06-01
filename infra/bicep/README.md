@@ -102,7 +102,6 @@ GitOps, private endpoint, or workload modules.
 | `expectedRepository` | Repository value carried through deployment metadata. Defaults to this repository. |
 | `runnerAllowedPublicIp` | Runner NAT public IP in CIDR form, for example `203.0.113.10/32`. Required. |
 | `enablePublicEdge` | Deploys Application Gateway and the public DNS alias after the certificate exists. Defaults to `false`. |
-| `enableCustomDomain` | Binds the APIM custom domain after the public edge DNS record is created and resolvable. Defaults to `false`. |
 | `customDomainCertificateSecretUri` | Optional versionless certificate secret URI for direct Bicep runs. The guarded workflow infers it from `cert-lab-consultwithcloud-com` when `enablePublicEdge` is `true`. |
 | `deploymentAdminGroupObjectId` | Microsoft Entra group object ID for permanent deployment administrators. Defaults to the lab deployment admin group. |
 | `wafAllowedSourceCidrs` | Optional source CIDR allow list for the WAF policy. When set, requests outside the list are blocked before managed rules run. Empty means no custom source block rule. |
@@ -111,7 +110,7 @@ GitOps, private endpoint, or workload modules.
 | `labDnsZoneName` | Future lab DNS zone contract value. Defaults to `lab.consultwithcloud.com`. |
 | `sharedResourceGroupName` | Existing persistent shared resource group created by `.github/workflows/bootstrap-persistent.yml`. Defaults to `rg-cwc-ai-gw-shared-swc-001`. |
 | `sharedKeyVaultName` | Existing persistent shared Key Vault created by `.github/workflows/bootstrap-persistent.yml`. Defaults to `kv-cwc-aigw-shr-swc-001`. |
-| `apiLabHostname` | Future APIM gateway hostname contract value. Defaults to `api.lab.consultwithcloud.com`. |
+| `apiLabHostname` | Public Application Gateway API hostname contract value. Defaults to `api.lab.consultwithcloud.com`. |
 | `appLabHostname` | Future BFF app hostname contract value. Defaults to `app.lab.consultwithcloud.com`. |
 | `argoLabHostname` | Future GitOps control plane hostname contract value. Defaults to `argo.lab.consultwithcloud.com`. |
 | `enableAks` | Future AKS feature flag. Defaults to `false`. |
@@ -162,18 +161,17 @@ Run persistent bootstrap first in `apply` mode. This creates
 the `lab.consultwithcloud.com` public DNS zone. The bootstrap workflow is
 create/update only and has no destroy mode.
 
-Run phase 1 of the hub-spoke deployment with `enablePublicEdge = false` and
-`enableCustomDomain = false`. This creates the hub and spoke foundations, APIM,
-Log Analytics, ACR, Firewall, and peerings without binding the
-certificate-dependent edge resources. It references the shared Key Vault and
-public DNS zone as existing resources.
+Run phase 1 of the hub-spoke deployment with `enablePublicEdge = false`. This
+creates the hub and spoke foundations, APIM, Log Analytics, ACR, Firewall, and
+peerings without binding the certificate-dependent edge resources. It references
+the shared Key Vault and public DNS zone as existing resources.
 
 ### Future Lab Zone Delegation
 
 After phase 1 completes, copy the `labPublicDnsZoneNameServers` output and add
 those name servers as `NS` records for `lab` in the Cloudflare
 `consultwithcloud.com` zone. This prepares the full demo hostnames only. It
-does not issue a certificate or bind an APIM custom domain.
+does not issue a certificate or bind an APIM custom hostname.
 
 The persistent bootstrap workflow always looks up the fixed GitHub runner
 subnet `snet-github-actions-private-runner-neu` in `vnet-dv-gh-actions-neu` and
@@ -192,9 +190,9 @@ intact.
 
 ### Lab API Hostname Flow
 
-The APIM edge hostname is `api.lab.consultwithcloud.com`. Delegate the parent
-DNS zone `consultwithcloud.com` so `lab.consultwithcloud.com` uses the Azure DNS
-name servers created by the lab child zone. Then run
+The public API edge hostname is `api.lab.consultwithcloud.com`. Delegate the
+parent DNS zone `consultwithcloud.com` so `lab.consultwithcloud.com` uses the
+Azure DNS name servers created by the lab child zone. Then run
 `.github/workflows/certificate-issue.yml` to create temporary ACME DNS-01 TXT
 records in `lab.consultwithcloud.com` and import the Let's Encrypt SAN
 certificate into Key Vault as `cert-lab-consultwithcloud-com`. Parent zone
@@ -204,9 +202,20 @@ and `kv-cwc-aigw-shr-swc-001` Key Vault. It installs `certbot` if the runner
 image does not already provide it and imports a PFX file because
 Application Gateway TLS termination requires PFX certificates in Key Vault.
 
-Run phase 2 with `enablePublicEdge = true` and `enableCustomDomain = false` after the certificate exists. The guarded workflow looks up `cert-lab-consultwithcloud-com` in `kv-cwc-aigw-shr-swc-001`, strips the secret version, and passes the versionless URI to Bicep. This deploys Application Gateway and creates the public DNS alias record without binding the APIM v2 custom domain.
+Run phase 2 with `enablePublicEdge = true` after the certificate exists. The
+guarded workflow looks up `cert-lab-consultwithcloud-com` in
+`kv-cwc-aigw-shr-swc-001`, strips the secret version, and passes the versionless
+URI to Bicep. This deploys Application Gateway and creates the public DNS alias
+record for `api.lab.consultwithcloud.com`.
 
-Run phase 3 with `enablePublicEdge = true` and `enableCustomDomain = true` only after public DNS for `api.lab.consultwithcloud.com` resolves to Application Gateway. This binds `api.lab.consultwithcloud.com` on APIM and creates the private APIM resolution record in a private DNS zone named `api.lab.consultwithcloud.com`. The deployment links that zone to both the hub VNet and the spoke VNet as resolution-only links so Application Gateway and spoke workloads resolve the APIM gateway hostname to the APIM private IP. Let's Encrypt certificate issuance and APIM custom domain binding remain separate steps.
+Application Gateway terminates public TLS for `api.lab.consultwithcloud.com` and
+re-encrypts to the APIM default gateway hostname
+`apim-cwc-ai-gw-swc-001.azure-api.net`. APIM does not bind
+`api.lab.consultwithcloud.com` as a custom hostname. The deployment creates a
+private DNS zone named `apim-cwc-ai-gw-swc-001.azure-api.net`, adds an apex A
+record to the APIM private IP, and links that zone to both the hub VNet and the
+spoke VNet as resolution-only links. This keeps the public lab hostname on
+Application Gateway and avoids the APIM Premium v2 public CNAME ownership check.
 
 ## Destroy Flow
 
@@ -272,7 +281,7 @@ Run hub-spoke what-if:
       --name apim-ai-gateway-lab-swc \
       --location swedencentral \
       --template-file infra/bicep/main.bicep \
-      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false
 
 Run persistent bootstrap apply:
 
@@ -288,12 +297,11 @@ Run hub-spoke apply:
       --name apim-ai-gateway-lab-swc \
       --location swedencentral \
       --template-file infra/bicep/main.bicep \
-      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false
 
 For phase 2, set `enablePublicEdge=true` after the confirmed lab certificate
-exists in Key Vault. The guarded workflow infers `customDomainCertificateSecretUri`
-from the fixed lab certificate object. For phase 3, keep `enablePublicEdge=true`
-and set `enableCustomDomain=true` after public DNS resolution is visible. The
+exists in Key Vault. The guarded workflow infers
+`customDomainCertificateSecretUri` from the fixed lab certificate object. The
 certificate workflow uses the same OIDC identity path as the infrastructure
 workflow and relies on deployment admin group membership for Key Vault
 certificate operations.

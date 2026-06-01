@@ -13,28 +13,35 @@ fi
 
 jq -e '.parameters.apiLabHostname.defaultValue == "api.lab.consultwithcloud.com"' "$compiled_template" >/dev/null
 jq -e '.variables.publicHostname == "[parameters('\''apiLabHostname'\'')]"' "$compiled_template" >/dev/null
+jq -e '.variables.apimGatewayHostname == "apim-cwc-ai-gw-swc-001.azure-api.net"' "$compiled_template" >/dev/null
 
 jq -e '
   .. | objects
   | select(.type? == "Microsoft.ApiManagement/service")
   | .properties.hostnameConfigurations
-  | contains("parameters('\''customDomainCertificateSecretUri'\'')")
-  and contains("parameters('\''enableCustomDomain'\'')")
-  and contains("parameters('\''publicHostname'\'')")
+  | . == []
 ' "$compiled_template" >/dev/null
 
 jq -e '
   .. | objects
   | select(.type? == "Microsoft.Network/privateDnsZones")
-  | .name == "[parameters('\''publicHostname'\'')]"
+  | .name == "[parameters('\''apimGatewayHostname'\'')]"
 ' "$compiled_template" >/dev/null
 
 jq -e '
   .. | objects
   | select(.type? == "Microsoft.Network/privateDnsZones/A")
-  | .name == "[format('\''{0}/{1}'\'', parameters('\''publicHostname'\''), '\''@'\'')]"
-  and .condition == "[parameters('\''enableCustomDomain'\'')]"
+  | .name == "[format('\''{0}/{1}'\'', parameters('\''apimGatewayHostname'\''), '\''@'\'')]"
   and (.properties.aRecords[0].ipv4Address | contains("privateIPAddresses[0]"))
+' "$compiled_template" >/dev/null
+
+jq -e '
+  .. | objects
+  | select(.type? == "Microsoft.Network/applicationGateways")
+  | (.properties.backendAddressPools[] | select(.name == "apim-private-gateway").properties.backendAddresses[0].fqdn == "[parameters('\''apimGatewayHostname'\'')]")
+  and (.properties.probes[] | select(.name == "apim-health").properties.host == "[parameters('\''apimGatewayHostname'\'')]")
+  and (.properties.backendHttpSettingsCollection[] | select(.name == "https-apim").properties.hostName == "[parameters('\''apimGatewayHostname'\'')]")
+  and (.properties.httpListeners[] | select(.name == "https-api-consultwithcloud").properties.hostName == "[parameters('\''publicHostname'\'')]")
 ' "$compiled_template" >/dev/null
 
 jq -e '
@@ -42,7 +49,7 @@ jq -e '
     .. | objects
     | select(.type? == "Microsoft.Network/privateDnsZones/virtualNetworkLinks")
     | .name
-  ] | index("[format('\''{0}/{1}'\'', parameters('\''publicHostname'\''), '\''link-hub'\'')]")
+  ] | index("[format('\''{0}/{1}'\'', parameters('\''apimGatewayHostname'\''), '\''link-hub'\'')]")
 ' "$compiled_template" >/dev/null
 
 jq -e '

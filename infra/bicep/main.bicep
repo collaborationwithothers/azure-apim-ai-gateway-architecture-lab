@@ -20,9 +20,6 @@ param runnerAllowedPublicIp string
 @description('Set true only after the Key Vault certificate for api.lab.consultwithcloud.com exists and customDomainCertificateSecretUri is set.')
 param enablePublicEdge bool = false
 
-@description('Set true only after the Key Vault certificate exists and public DNS for api.lab.consultwithcloud.com resolves to the Application Gateway public edge.')
-param enableCustomDomain bool = false
-
 @description('Optional versionless Key Vault secret URI for the api.lab.consultwithcloud.com PFX. Leave empty until the lab certificate object name is confirmed.')
 param customDomainCertificateSecretUri string = ''
 
@@ -153,6 +150,7 @@ var hubVnetName = 'vnet-cwc-ai-gw-hub-swc-001'
 var hubVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${hubRgName}/providers/Microsoft.Network/virtualNetworks/${hubVnetName}'
 var runnerVnetId = '/subscriptions/${subscription().subscriptionId}/resourceGroups/${runnerVnetResourceGroupName}/providers/Microsoft.Network/virtualNetworks/${runnerVnetName}'
 var publicHostname = apiLabHostname
+var apimGatewayHostname = 'apim-cwc-ai-gw-swc-001.azure-api.net'
 var apiLabDnsRecordName = 'api'
 var appLabDnsRecordName = 'app'
 var argoLabDnsRecordName = 'argo'
@@ -278,8 +276,8 @@ module hub './modules/hub.bicep' = {
     tags: tags
     runnerAllowedPublicIp: runnerAllowedPublicIp
     enablePublicEdge: enablePublicEdge
-    enableCustomDomain: enableCustomDomain
     publicHostname: publicHostname
+    apimGatewayHostname: apimGatewayHostname
     sharedKeyVaultName: sharedKeyVault.name
     customDomainCertificateSecretUri: certificateSecretUri
     deploymentAdminGroupObjectId: deploymentAdminGroupObjectId

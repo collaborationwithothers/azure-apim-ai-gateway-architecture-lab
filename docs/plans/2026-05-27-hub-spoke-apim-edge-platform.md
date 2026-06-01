@@ -121,7 +121,7 @@ Important terms:
 
 ## Plan of Work
 
-Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Add parameters for subscription-scale settings: `location`, `environmentName`, `namePrefix`, `expectedRepository`, `runnerAllowedPublicIp`, `enablePublicEdge`, and `enableCustomDomain`. Keep any certificate secret URI value as an optional Bicep override; the GitHub deployment workflow uses the inferred lab Key Vault secret URI. Create both resource groups in this file, then call resource-group-scoped modules for hub and spoke.
+Start by changing `infra/bicep/main.bicep` to `targetScope = 'subscription'`. Add parameters for subscription-scale settings: `location`, `environmentName`, `namePrefix`, `expectedRepository`, and `runnerAllowedPublicIp`. Keep `enablePublicEdge` as the certificate-dependent Application Gateway switch, and keep any certificate secret URI value as an optional Bicep override. The GitHub deployment workflow uses the inferred lab Key Vault secret URI. Create both resource groups in this file, then call resource-group-scoped modules for hub and spoke.
 
 Create a module folder under `infra/bicep/modules/`. Use Azure Verified Modules for resource types where the module is available, works cleanly, and can be pinned to an explicit version. Use raw Bicep for VNet peerings, route tables, diagnostic settings, DNS records, and other cross-resource wiring where raw resources are clearer.
 
@@ -137,7 +137,7 @@ Add `infra-deploy.yml` as a guarded manual workflow. It must accept `mode` as `v
 
 Add `certificate-issue.yml` as a separate guarded manual workflow. It runs after persistent bootstrap creates the Azure DNS child zone and shared Key Vault. It must create ACME DNS-01 challenges in `lab.consultwithcloud.com`, issue a Let's Encrypt SAN certificate for the lab hostnames, and import it into Key Vault using the confirmed certificate object name. Do not commit certificate files or ACME secrets.
 
-Update `README.md` and `infra/bicep/README.md`. The README must warn that APIM body logging is enabled and can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data. The infra README must describe the staged deployment: initial infrastructure, certificate issuance, public edge and DNS alias, then APIM custom domain binding after DNS resolution is visible.
+Update `README.md` and `infra/bicep/README.md`. The README must warn that APIM body logging is enabled and can ingest prompts, completions, request bodies, response bodies, secrets, or regulated data. The infra README must describe the staged deployment: initial infrastructure, certificate issuance, then public Application Gateway edge and DNS alias. APIM keeps its default gateway hostname behind private DNS.
 
 ## Concrete Steps
 
@@ -173,7 +173,7 @@ Run what-if before apply:
       --location swedencentral \
       --template-file infra/bicep/main.bicep \
       --parameters location=swedencentral \
-      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false
 
 Run apply only after reviewing what-if:
 
@@ -182,11 +182,11 @@ Run apply only after reviewing what-if:
       --location swedencentral \
       --template-file infra/bicep/main.bicep \
       --parameters location=swedencentral \
-      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false enableCustomDomain=false
+      --parameters runnerAllowedPublicIp=<runner-nat-public-ip> enablePublicEdge=false
 
 After phase one, capture the `labPublicDnsZoneNameServers` deployment output and create `NS` records for child name `lab` in the Cloudflare-managed parent zone `consultwithcloud.com`. This delegates `lab.consultwithcloud.com` for future full demo hostnames only. It does not create records for `api.lab.consultwithcloud.com`, `app.lab.consultwithcloud.com`, or `argo.lab.consultwithcloud.com`.
 
-For the current edge path, do not create a public DNS zone for `api.consultwithcloud.com`. Delegate `lab.consultwithcloud.com` from the parent DNS host before production certificate issuance. The certificate workflow imports a PFX certificate into the shared Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true` and `enableCustomDomain=false`. After public DNS resolution for `api.lab.consultwithcloud.com` is visible, re-run with both values set to `true`.
+For the current edge path, do not create a public DNS zone for `api.consultwithcloud.com`. Delegate `lab.consultwithcloud.com` from the parent DNS host before production certificate issuance. The certificate workflow imports a PFX certificate into the shared Key Vault using the same OIDC identity path as the infrastructure workflow and relies on deployment admin group membership for certificate operations. After the certificate exists in Key Vault, re-run the infrastructure workflow with `enablePublicEdge=true`. Public DNS for `api.lab.consultwithcloud.com` points to Application Gateway; Application Gateway routes privately to APIM by using the default APIM gateway hostname.
 
 For the guarded workflow path, set `RUNNER_ALLOWED_PUBLIC_IP_CIDR` as a variable on the `dev` GitHub Environment. The workflow passes that value to the Bicep `runnerAllowedPublicIp` parameter so operators do not type the runner NAT CIDR for every run.
 
@@ -242,7 +242,7 @@ Bicep deployments must be incremental and safe to rerun. Re-running the validate
 
 If certificate issuance fails, leave infrastructure intact. Remove only temporary ACME challenge DNS records created by the workflow, then rerun the certificate workflow.
 
-If APIM custom domain binding fails because the certificate or public DNS is not ready, rerun the infrastructure deployment with `enablePublicEdge = true` and `enableCustomDomain = false`, confirm the certificate workflow has imported the confirmed lab SAN certificate object name, confirm public DNS resolution, then rerun with both values set to `true`.
+If the public edge fails because the certificate is not ready, rerun the infrastructure deployment with `enablePublicEdge = false`, confirm the certificate workflow has imported the confirmed lab SAN certificate object name, then rerun with `enablePublicEdge = true`.
 
 If WAF Prevention blocks legitimate APIM traffic, inspect Application Gateway WAF logs in Log Analytics and add narrow exclusions only for the specific rule, request component, and hostname required. Do not disable WAF globally.
 
@@ -311,7 +311,6 @@ Minimum parameters:
     param expectedRepository string
     param runnerAllowedPublicIp string
     param enablePublicEdge bool = false
-    param enableCustomDomain bool = false
 
 Expected GitHub workflow permissions:
 
